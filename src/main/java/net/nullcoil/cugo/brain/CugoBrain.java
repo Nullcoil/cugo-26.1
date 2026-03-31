@@ -1,8 +1,13 @@
 package net.nullcoil.cugo.brain;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.ai.control.MoveControl;
 import net.minecraft.world.entity.animal.golem.CopperGolem;
+import net.nullcoil.cugo.brain.movecontrol.TightMoveControl;
+import net.nullcoil.cugo.config.ConfigHandler;
+import net.nullcoil.cugo.util.MobMoveControlAccessor;
 import net.nullcoil.cugo.util.StateMachine;
 import org.jetbrains.annotations.NotNull;
 
@@ -16,11 +21,14 @@ public class CugoBrain implements CugoBehavior {
     private SelfPreservationBehavior preservationBehavior;
     private FetchItemBehavior fetchBehavior;
     private SortItemBehavior sortBehavior;
+    private BatteryBehavior batteryBehavior;
+
+    private MoveControl vanillaMoveControl;
+    private TightMoveControl tightMoveControl;
 
     private CopperGolem self;
 
     public void onAttach(@NotNull CopperGolem golem) {
-        this.self = golem;
         this.wanderBehavior = new RandomWanderBehavior();
         this.lingerBehavior = new LingerBehavior(3);
         this.pingBehavior = new PingChestsBehavior();
@@ -28,10 +36,30 @@ public class CugoBrain implements CugoBehavior {
         this.preservationBehavior = new SelfPreservationBehavior();
         this.fetchBehavior = new FetchItemBehavior();
         this.sortBehavior = new SortItemBehavior();
+        this.batteryBehavior = new BatteryBehavior();
+
+        this.vanillaMoveControl = golem.getMoveControl();
+        this.tightMoveControl = new TightMoveControl(golem);
+        this.batteryBehavior.setMoveControl(tightMoveControl); // ← wire it in
+
+        this.self = golem;
     }
 
     @Override
     public void tick(@NotNull CopperGolem golem, @NotNull ServerLevel level) {
+        if (ConfigHandler.getConfig().rechargeableGolems) {
+            batteryBehavior.setPanicking(currentState == StateMachine.State.PANIC);
+            batteryBehavior.tick(golem, level);
+
+            boolean needsPrecision = batteryBehavior.needsCharge();
+            MoveControl current = ((MobMoveControlAccessor) golem).cugo$getMoveControl();
+
+            if (needsPrecision && current != tightMoveControl) {
+                ((MobMoveControlAccessor) golem).cugo$setMoveControl(tightMoveControl);
+            } else if (!needsPrecision && current == tightMoveControl) {
+                ((MobMoveControlAccessor) golem).cugo$setMoveControl(vanillaMoveControl);
+            }
+        }
 
         // ── 1. PANIC ─────────────────────────────────────────────────────────
         if (currentState == StateMachine.State.PANIC) {
@@ -39,6 +67,10 @@ public class CugoBrain implements CugoBehavior {
             if (panicBehavior.isSafe(golem)) {
                 transitionToWander();
             }
+            return;
+        }
+
+        if (ConfigHandler.getConfig().rechargeableGolems && batteryBehavior.needsCharge()) {
             return;
         }
 
@@ -52,21 +84,20 @@ public class CugoBrain implements CugoBehavior {
 
         // ── 3. SORTING ───────────────────────────────────────────────────────
         if (currentState == StateMachine.State.SORTING) {
+            if(golem.getMainHandItem().isEmpty()) {
+                sortBehavior.reset();
+                fetchBehavior.reset();
+                transitionToWander();
+                return;
+            }
             sortBehavior.tick(golem, level);
 
             if (sortBehavior.isDone()) {
                 sortBehavior.reset();
-                if (!golem.getMainHandItem().isEmpty()) {
-                    // Still holding something — sort didn't place everything,
-                    // try again next tick (stays in SORTING) or fall through to FETCH.
-                    // Per spec: successful sort → go directly to FETCH.
-                    fetchBehavior.reset();
-                    currentState = StateMachine.State.FETCHING;
-                } else {
-                    // Item was placed — go straight to FETCH.
-                    fetchBehavior.reset();
-                    currentState = StateMachine.State.FETCHING;
-                }
+                BlockPos returnTarget = fetchBehavior.getLastFetchedFrom(); // grab before reset
+                fetchBehavior.reset();
+                fetchBehavior.primeWithTarget(returnTarget);
+                currentState = StateMachine.State.FETCHING;
             }
             return;
         }
@@ -76,12 +107,14 @@ public class CugoBrain implements CugoBehavior {
             fetchBehavior.tick(golem, level);
 
             if (!golem.getMainHandItem().isEmpty()) {
-                // Picked something up — go sort it.
-                fetchBehavior.reset();
                 sortBehavior.reset();
+                sortBehavior.primeWithMemory(
+                        fetchBehavior.getLastFetchedFrom(),
+                        fetchBehavior.getLastFetchedItem()
+                );
+                fetchBehavior.reset();
                 currentState = StateMachine.State.SORTING;
             } else if (fetchBehavior.isDone()) {
-                // Exhausted all chests, nothing grabbed — back to wandering.
                 fetchBehavior.reset();
                 transitionToWander();
             }
@@ -126,7 +159,11 @@ public class CugoBrain implements CugoBehavior {
     public void onPhysicalDamage(DamageSource source) {
         this.currentState = StateMachine.State.PANIC;
         if (this.panicBehavior != null) this.panicBehavior.reset();
-        if (this.self != null) this.self.getNavigation().stop();
+        if (this.fetchBehavior != null) this.fetchBehavior.fullReset();
+        if (this.sortBehavior != null) this.sortBehavior.fullReset();
+        if (this.self != null) {
+            ((MobMoveControlAccessor)self).cugo$setMoveControl(vanillaMoveControl);
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@ package net.nullcoil.cugo.brain;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BlockTags;
@@ -10,6 +11,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.animal.golem.CopperGolem;
 import net.minecraft.world.entity.animal.golem.CopperGolemState;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.BarrelBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.nullcoil.cugo.config.ConfigHandler;
@@ -31,6 +33,13 @@ public class SortItemBehavior implements CugoBehavior {
     private int openingTimer = 0;
     private int pathCooldown = 0;
     private static final int OPEN_DURATION = 60;
+    private @Nullable BlockPos memorizedChest = null;
+    private ItemStack memorizedItem = ItemStack.EMPTY;
+
+    public void primeWithMemory(@Nullable BlockPos sourceChest, @NotNull ItemStack item) {
+        this.memorizedChest = sourceChest;
+        this.memorizedItem = item;
+    }
 
     @Override
     public void tick(CopperGolem golem, ServerLevel level) {
@@ -58,7 +67,7 @@ public class SortItemBehavior implements CugoBehavior {
             return;
         }
 
-        chestQueue = buildChestQueue(accessor.cugo$getSeenChests(), level);
+        chestQueue = buildChestQueue(golem, accessor.cugo$getSeenChests(), level);
         if(chestQueue.isEmpty()) {
             Dev.log("[SortItem] No chests found. Aborting behavior.");
             phase = StateMachine.Phase.IDLE;
@@ -121,11 +130,10 @@ public class SortItemBehavior implements CugoBehavior {
             Dev.log("[SortChest] Opening chest at " + currentTarget + " | block=" + state.getBlock());
 
             golem.setOpenedChestPos(currentTarget);
-            level.blockEvent(currentTarget, state.getBlock(), 1, 1);
-            level.playSound(null, currentTarget, SoundEvents.CHEST_OPEN, SoundSource.BLOCKS);
+            openContainer(level, currentTarget);
 
             Container inventory = DoubleChestHelper.getInventory(level, currentTarget);
-            if (inventory != null && !isEmpty(inventory)) {
+            if (inventory != null && purityCheck(golem, inventory)) {
                 golem.setState(CopperGolemState.DROPPING_ITEM);
                 golem.playSound(SoundEvents.COPPER_GOLEM_ITEM_DROP);
             } else {
@@ -141,18 +149,45 @@ public class SortItemBehavior implements CugoBehavior {
         Container inventory = DoubleChestHelper.getInventory(level, currentTarget);
         golem.setState(CopperGolemState.IDLE);
         golem.clearOpenedChestPos();
-        level.blockEvent(currentTarget, level.getBlockState(currentTarget).getBlock(), 1, 0);
-        level.playSound(null, currentTarget, SoundEvents.CHEST_CLOSE, SoundSource.BLOCKS, 1.0F, 1.0F);
+        closeContainer(level, currentTarget);
 
         if (inventory != null && purityCheck(golem, inventory)) {
             insertStack(inventory, golem);
             Dev.log("[SortItem] Item placed into " + currentTarget + ".");
+            recordRummaged(golem, level, currentTarget, inventory);
             phase = StateMachine.Phase.DONE;
             return;
         }
 
+        recordRummaged(golem, level, currentTarget, inventory);
         Dev.log("[SortChest] No item placed into " + currentTarget + ". Advancing to next chest.");
         advanceToNextChest(golem, level);
+    }
+
+    private void openContainer(ServerLevel level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (state.is(Blocks.BARREL)) {
+            level.setBlock(pos, state.setValue(BarrelBlock.OPEN, true), 3);
+            level.playSound(null, pos, SoundEvents.BARREL_OPEN, SoundSource.BLOCKS, 1.0F, 1.0F);
+        } else {
+            level.blockEvent(pos, state.getBlock(), 1, 1);
+            level.playSound(null, pos,
+                    state.is(BlockTags.SHULKER_BOXES) ? SoundEvents.SHULKER_BOX_OPEN : SoundEvents.CHEST_OPEN,
+                    SoundSource.BLOCKS, 1.0F, 1.0F);
+        }
+    }
+
+    private void closeContainer(ServerLevel level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (state.is(Blocks.BARREL)) {
+            level.setBlock(pos, state.setValue(BarrelBlock.OPEN, false), 3);
+            level.playSound(null, pos, SoundEvents.BARREL_CLOSE, SoundSource.BLOCKS, 1.0F, 1.0F);
+        } else {
+            level.blockEvent(pos, state.getBlock(), 1, 0);
+            level.playSound(null, pos,
+                    state.is(BlockTags.SHULKER_BOXES) ? SoundEvents.SHULKER_BOX_CLOSE : SoundEvents.CHEST_CLOSE,
+                    SoundSource.BLOCKS, 1.0F, 1.0F);
+        }
     }
 
     private void advanceToNextChest(@NotNull CopperGolem golem, @NotNull ServerLevel level) {
@@ -184,6 +219,12 @@ public class SortItemBehavior implements CugoBehavior {
         currentTarget = null;
         openingTimer = 0;
         pathCooldown = 0;
+    }
+
+    public void fullReset() {
+        reset();
+        memorizedChest = null;
+        memorizedItem = ItemStack.EMPTY;
     }
 
     private void insertStack(@NotNull Container container, @NotNull CopperGolem golem) {
@@ -247,14 +288,42 @@ public class SortItemBehavior implements CugoBehavior {
     }
 
     private List<BlockPos> buildChestQueue(
+            @NotNull CopperGolem golem,
             @NotNull Set<BlockPos> seenChests,
             @NotNull ServerLevel level
     ) {
+        CugoNBTAccessor accessor = (CugoNBTAccessor) golem;
         List<BlockPos> queue = new ArrayList<>();
 
-        for (BlockPos pos : seenChests) {
-            if (isValidContainer(level, pos)) queue.add(pos);
+        // 1. Memorized chest from this fetch cycle — highest confidence
+        if (memorizedChest != null && isValidContainer(level, memorizedChest)) {
+            queue.add(memorizedChest);
         }
+
+        // 2. Any chest from rummaged memory known to contain this item
+        if (!memorizedItem.isEmpty()) {
+            for (ChestMemory memory : accessor.cugo$getRummagedChests()) {
+                if (memory.pos().equals(memorizedChest)) continue; // already added
+                for (ItemStack remembered : memory.items()) {
+                    if (ItemStack.isSameItemSameComponents(remembered, memorizedItem)) {
+                        if (isValidContainer(level, memory.pos())) {
+                            queue.add(memory.pos());
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 3. Everything else as blind fallback
+        for (BlockPos pos : seenChests) {
+            if (!pos.equals(memorizedChest) && isValidContainer(level, pos)) {
+                if (queue.stream().noneMatch(p -> p.equals(pos))) {
+                    queue.add(pos);
+                }
+            }
+        }
+
         return queue;
     }
 

@@ -30,6 +30,13 @@ public class StateMachine {
         HIDING
     }
 
+    public enum ChargePhase {
+        IDLE,
+        SEEKING,
+        DOCKING,
+        CHARGING
+    }
+
     public enum Container {
         CHEST,
         DOUCHE,   // Double Chest

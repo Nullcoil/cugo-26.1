@@ -4,7 +4,7 @@ public class Config {
     public boolean debugMode = true;
     public boolean redstoneBoost = true;
     public boolean rechargeableStatues = true;
-    public boolean rechargeableGolems = false;
+    public boolean rechargeableGolems = true;
     public boolean damageItemsOnUse = true;
     public boolean barrelAsOutput = true;
     public boolean shulkerAsOutput = true;
@@ -21,8 +21,11 @@ public class Config {
     public int maxStackSize = 64;
 
     public int batteryLife = 10; // in minutes
-    public int chargeTime = 30; // in seconds
-    public float panicWasteMultiplier = 20;
+    public int warningThreshold = 1; // in minutes
+    public int chargeTime = 30; // in seconds. By default, from 0% to 100%, it takes 30 seconds.
+    public int panicWasteMultiplier = 20; // while panicked, charge time goes down by this value per tick.
+
+    public boolean passiveCharge = false; // if true, CuGO can charge by casually walking through a valid charge location
 
     public Config() {}
 }

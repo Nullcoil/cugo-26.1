@@ -22,7 +22,6 @@ public class PoweredBlockMixin {
     public void cugo$cugoStep(Level level, BlockPos pos, BlockState state, Entity entity, CallbackInfo ci) {
         if(level.getBlockState(pos).is(Blocks.REDSTONE_BLOCK) && ConfigHandler.getConfig().redstoneBoost && entity instanceof CopperGolem golem) {
             golem.addEffect(new MobEffectInstance(MobEffects.SPEED, 80, 0, false, true, false));
-            Dev.log("Applied Speed effect to Cugo.");
         }
         ci.cancel();
     }

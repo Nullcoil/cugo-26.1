@@ -2,7 +2,9 @@ package net.nullcoil.cugo;
 
 import net.fabricmc.api.ModInitializer;
 
+import net.nullcoil.cugo.attribute.CugoAttributes;
 import net.nullcoil.cugo.config.ConfigHandler;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,8 +14,8 @@ public class CuGO implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
-		LOGGER.info("Initializing Copper Golem Optimizations");
-
+		LOGGER.info("Initializing Copper Golem Overcomplications");
+		CugoAttributes.register();
 		ConfigHandler.register();
 	}
 }

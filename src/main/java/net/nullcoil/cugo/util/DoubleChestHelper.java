@@ -45,9 +45,18 @@ public class DoubleChestHelper {
     @Nullable
     public static Container getInventory(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
-        if(!(state.getBlock() instanceof ChestBlock chestBlock)) return null;
 
-        return ChestBlock.getContainer(chestBlock, state, level, pos, false);
+        // Double chest handling
+        if (state.getBlock() instanceof ChestBlock chestBlock) {
+            return ChestBlock.getContainer(chestBlock, state, level, pos, false);
+        }
+
+        // General container (barrels, shulker boxes, etc.)
+        if (level.getBlockEntity(pos) instanceof Container container) {
+            return container;
+        }
+
+        return null;
     }
 
     public static boolean isReachable(Level level, Vec3 entityPos, BlockPos chestPos, double reachDistance) {

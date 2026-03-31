@@ -4,6 +4,7 @@
   "compatibilityLevel": "JAVA_25",
   "mixins": [
     "block.PoweredBlockMixin",
+    "coppergolem.Cugo_AttributeMixin",
     "coppergolem.Cugo_BrainTransplant",
     "coppergolem.Cugo_DropEquipmentMixin",
     "coppergolem.Cugo_InteractionMixin",
@@ -15,7 +16,8 @@
     "coppergolem.Cugo_WeatheringMixin",
     "coppergolemstatueblock.CopperGolemStatueBlockAccessor",
     "coppergolemstatueblock.Cugo_StatueRechargeMixin",
-    "coppergolemstatueblock.Cugo_WeatheringStatueRechargeMixin"
+    "coppergolemstatueblock.Cugo_WeatheringStatueRechargeMixin",
+    "mob.MobMoveMixin"
   ],
   "injectors": {
     "defaultRequire": 1

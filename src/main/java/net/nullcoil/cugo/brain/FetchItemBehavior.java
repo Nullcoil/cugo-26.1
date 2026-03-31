@@ -32,6 +32,8 @@ public class FetchItemBehavior implements CugoBehavior {
     private int openingTimer = 0;
     private int pathCooldown = 0;
     private static final int OPEN_DURATION = 60;
+    private @Nullable BlockPos lastFetchedFrom = null;
+    private ItemStack lastFetchedItem = ItemStack.EMPTY;
 
     // --- Entry Point ---
 
@@ -163,12 +165,16 @@ public class FetchItemBehavior implements CugoBehavior {
             ItemStack grabbed = extractStack(inventory, golem);
             if (!grabbed.isEmpty()) {
                 golem.setItemInHand(InteractionHand.MAIN_HAND, grabbed);
+                lastFetchedFrom = currentTarget;
+                lastFetchedItem = grabbed.copy();
                 Dev.log("[FetchChest] Grabbed " + grabbed.getCount() + "x " + grabbed.getItem() + " from " + currentTarget);
+                recordRummaged(golem, level, currentTarget, inventory);
                 phase = StateMachine.Phase.DONE;
                 return;
             }
         }
 
+        recordRummaged(golem, level, currentTarget, inventory);
         Dev.log("[FetchChest] No item grabbed from " + currentTarget + ". Advancing to next chest.");
         advanceToNextChest(golem, level);
     }
@@ -204,19 +210,32 @@ public class FetchItemBehavior implements CugoBehavior {
         pathCooldown = 0;
     }
 
-    /**
-     * Home chest is always first; remaining copper chests from seenChests follow.
-     */
+    public void fullReset() {
+        reset();
+        lastFetchedFrom = null;
+        lastFetchedItem = ItemStack.EMPTY;
+    }
+
     private List<BlockPos> buildCopperChestQueue(
             @NotNull BlockPos home,
             @NotNull Set<BlockPos> seenChests,
             @NotNull ServerLevel level
     ) {
         List<BlockPos> queue = new ArrayList<>();
-        queue.add(home);
 
+        // If we have a remembered source, go there first
+        if (lastFetchedFrom != null && isValidCopperChest(level, lastFetchedFrom)) {
+            queue.add(lastFetchedFrom);
+        }
+
+        // Home next (if not already added)
+        if (!home.equals(lastFetchedFrom)) {
+            queue.add(home);
+        }
+
+        // Rest of seen copper chests
         for (BlockPos pos : seenChests) {
-            if (!pos.equals(home) && isValidCopperChest(level, pos)) {
+            if (!pos.equals(home) && !pos.equals(lastFetchedFrom) && isValidCopperChest(level, pos)) {
                 queue.add(pos);
             }
         }
@@ -265,6 +284,10 @@ public class FetchItemBehavior implements CugoBehavior {
         return ItemStack.EMPTY;
     }
 
+    public void primeWithTarget(@Nullable BlockPos target) {
+        this.lastFetchedFrom = target;
+    }
+
     /**
      * Snapshot the chest's current contents into the rummaged-chests NBT list.
      * If the inventory is null or empty we still record the position so we
@@ -301,4 +324,8 @@ public class FetchItemBehavior implements CugoBehavior {
     public boolean isIdle() {
         return phase == StateMachine.Phase.IDLE;
     }
+
+    public @Nullable BlockPos getLastFetchedFrom() { return lastFetchedFrom; }
+
+    public ItemStack getLastFetchedItem() { return lastFetchedItem.copy(); }
 }

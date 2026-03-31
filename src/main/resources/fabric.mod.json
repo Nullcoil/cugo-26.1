@@ -3,15 +3,15 @@
 	"id": "cugo",
 	"version": "${version}",
 	"name": "CuGO",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"description": "Copper Golem Overcomplication. It's overcomplicated Copper Golem AI.",
 	"authors": [
-		"Me!"
+		"Nullcoil"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "https://modrinth.com/project/cugo",
+		"sources": "https://github.com/Nullcoil/cugo-26.1"
 	},
-	"license": "CC0-1.0",
+	"license": "CC-BY-NC-4.0",
 	"icon": "assets/cugo/icon.png",
 	"environment": "*",
 	"entrypoints": {
