@@ -13,7 +13,7 @@ import net.minecraft.world.level.block.WeatheringCopperGolemStatueBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.nullcoil.cugo.config.ConfigHandler;
-import net.nullcoil.cugo.util.Debug;
+import net.nullcoil.cugo.util.Dev;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -30,7 +30,7 @@ public class Cugo_WeatheringStatueRechargeMixin {
             WeatheringCopperGolemStatueBlock block = (WeatheringCopperGolemStatueBlock) (Object) this;
 
             if(block.getAge() == WeatheringCopper.WeatherState.UNAFFECTED) {
-                Debug.log("Preventing activation. Updating pose");
+                Dev.log("Preventing activation. Updating pose");
                 ((CopperGolemStatueBlockAccessor) block).invokeUpdatePose(level, blockState, blockPos, player);
 
                 cir.setReturnValue(InteractionResult.SUCCESS);

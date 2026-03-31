@@ -10,7 +10,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.nullcoil.cugo.config.ConfigHandler;
-import net.nullcoil.cugo.util.Debug;
+import net.nullcoil.cugo.util.Dev;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -22,7 +22,7 @@ public class PoweredBlockMixin {
     public void cugo$cugoStep(Level level, BlockPos pos, BlockState state, Entity entity, CallbackInfo ci) {
         if(level.getBlockState(pos).is(Blocks.REDSTONE_BLOCK) && ConfigHandler.getConfig().redstoneBoost && entity instanceof CopperGolem golem) {
             golem.addEffect(new MobEffectInstance(MobEffects.SPEED, 80, 0, false, true, false));
-            Debug.log("Applied Speed effect to Cugo.");
+            Dev.log("Applied Speed effect to Cugo.");
         }
         ci.cancel();
     }

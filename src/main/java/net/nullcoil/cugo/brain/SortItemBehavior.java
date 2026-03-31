@@ -14,7 +14,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.nullcoil.cugo.config.ConfigHandler;
 import net.nullcoil.cugo.util.CugoNBTAccessor;
-import net.nullcoil.cugo.util.Debug;
+import net.nullcoil.cugo.util.Dev;
 import net.nullcoil.cugo.util.DoubleChestHelper;
 import net.nullcoil.cugo.util.StateMachine;
 import org.jetbrains.annotations.NotNull;
@@ -35,7 +35,7 @@ public class SortItemBehavior implements CugoBehavior {
     @Override
     public void tick(CopperGolem golem, ServerLevel level) {
         if (golem.getMainHandItem().isEmpty()) {
-            Debug.log("[SortItem] Item in hand disappeared. Aborting behavior.");
+            Dev.log("[SortItem] Item in hand disappeared. Aborting behavior.");
             return;
         }
 
@@ -53,14 +53,14 @@ public class SortItemBehavior implements CugoBehavior {
         CugoNBTAccessor accessor = (CugoNBTAccessor) golem;
 
         if (accessor.cugo$getSeenChests().isEmpty()) {
-            Debug.log("[SortItem] No chests found. Aborting behavior.");
+            Dev.log("[SortItem] No chests found. Aborting behavior.");
             phase = StateMachine.Phase.IDLE;
             return;
         }
 
         chestQueue = buildChestQueue(accessor.cugo$getSeenChests(), level);
         if(chestQueue.isEmpty()) {
-            Debug.log("[SortItem] No chests found. Aborting behavior.");
+            Dev.log("[SortItem] No chests found. Aborting behavior.");
             phase = StateMachine.Phase.IDLE;
             return;
         }
@@ -70,13 +70,13 @@ public class SortItemBehavior implements CugoBehavior {
 
     private void tickPathing(@NotNull CopperGolem golem, @NotNull ServerLevel level) {
         if (currentTarget == null) {
-            Debug.log("[SortItem] currentTarget is lost during PATHING. Aborting.");
+            Dev.log("[SortItem] currentTarget is lost during PATHING. Aborting.");
             phase = StateMachine.Phase.DONE;
             return;
         }
 
         if (!isValidContainer(level, currentTarget)) {
-            Debug.log("[SortItem] Target chest at " + currentTarget + " no longer valid. Skipping.");
+            Dev.log("[SortItem] Target chest at " + currentTarget + " no longer valid. Skipping.");
             advanceToNextChest(golem, level);
             return;
         }
@@ -94,7 +94,7 @@ public class SortItemBehavior implements CugoBehavior {
         }
 
         if (isCloseEnough(golem, currentTarget)) {
-            Debug.log("[SortItem] Arrived at chest " + currentTarget + ". Beginning open sequence.");
+            Dev.log("[SortItem] Arrived at chest " + currentTarget + ". Beginning open sequence.");
             golem.getNavigation().stop();
             openingTimer = 0;
             phase = StateMachine.Phase.OPENING;
@@ -118,7 +118,7 @@ public class SortItemBehavior implements CugoBehavior {
 
         if (openingTimer == 1) {
             BlockState state = level.getBlockState(currentTarget);
-            Debug.log("[SortChest] Opening chest at " + currentTarget + " | block=" + state.getBlock());
+            Dev.log("[SortChest] Opening chest at " + currentTarget + " | block=" + state.getBlock());
 
             golem.setOpenedChestPos(currentTarget);
             level.blockEvent(currentTarget, state.getBlock(), 1, 1);
@@ -146,12 +146,12 @@ public class SortItemBehavior implements CugoBehavior {
 
         if (inventory != null && purityCheck(golem, inventory)) {
             insertStack(inventory, golem);
-            Debug.log("[SortItem] Item placed into " + currentTarget + ".");
+            Dev.log("[SortItem] Item placed into " + currentTarget + ".");
             phase = StateMachine.Phase.DONE;
             return;
         }
 
-        Debug.log("[SortChest] No item placed into " + currentTarget + ". Advancing to next chest.");
+        Dev.log("[SortChest] No item placed into " + currentTarget + ". Advancing to next chest.");
         advanceToNextChest(golem, level);
     }
 
@@ -169,12 +169,12 @@ public class SortItemBehavior implements CugoBehavior {
                 );
                 pathCooldown = 20;
                 phase = StateMachine.Phase.PATHING;
-                Debug.log("[SortItem] Next target: " + candidate);
+                Dev.log("[SortItem] Next target: " + candidate);
                 return;
             }
         }
 
-        Debug.log("[SortItem] Queue exhausted. No item found.");
+        Dev.log("[SortItem] Queue exhausted. No item found.");
         phase = StateMachine.Phase.DONE;
     }
 
@@ -228,7 +228,7 @@ public class SortItemBehavior implements CugoBehavior {
         }
 
         accessor.cugo$addRummagedChest(new ChestMemory(pos, snapshot, type));
-        Debug.log("[SortChest] Recorded rummage at " + pos + " (" + snapshot.size() + " slot(s) with items)");
+        Dev.log("[SortChest] Recorded rummage at " + pos + " (" + snapshot.size() + " slot(s) with items)");
     }
 
     private boolean purityCheck(@NotNull CopperGolem golem, @NotNull Container inventory) {

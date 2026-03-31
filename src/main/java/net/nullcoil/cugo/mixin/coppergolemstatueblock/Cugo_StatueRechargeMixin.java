@@ -21,7 +21,7 @@ import net.minecraft.world.level.redstone.Orientation;
 import net.minecraft.world.phys.BlockHitResult;
 import net.nullcoil.cugo.config.ConfigHandler;
 import net.nullcoil.cugo.util.CugoWeatheringAccessor;
-import net.nullcoil.cugo.util.Debug;
+import net.nullcoil.cugo.util.Dev;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -78,7 +78,7 @@ public abstract class Cugo_StatueRechargeMixin extends Block {
 
     @Unique
     private void cugo$revertToGolem(Level level, BlockPos pos, BlockState state) {
-        Debug.log("Statue received redstone signal. Reverting to Golem at " + pos);
+        Dev.log("Statue received redstone signal. Reverting to Golem at " + pos);
 
         CopperGolem golem = EntityType.COPPER_GOLEM.create(level, EntitySpawnReason.TRIGGERED);
 

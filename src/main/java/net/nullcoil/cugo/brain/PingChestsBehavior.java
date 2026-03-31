@@ -16,7 +16,7 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.phys.Vec3;
 import net.nullcoil.cugo.config.ConfigHandler;
 import net.nullcoil.cugo.util.CugoNBTAccessor;
-import net.nullcoil.cugo.util.Debug;
+import net.nullcoil.cugo.util.Dev;
 import net.nullcoil.cugo.util.DoubleChestHelper;
 import net.nullcoil.cugo.util.StateMachine;
 import org.jetbrains.annotations.NotNull;
@@ -36,7 +36,7 @@ public class PingChestsBehavior implements CugoBehavior {
 
     @Override
     public void tick(@NotNull CopperGolem golem, @NotNull ServerLevel level) {
-        Debug.log("[PingChests] Starting chest scan...");
+        Dev.log("[PingChests] Starting chest scan...");
 
         CugoNBTAccessor accessor = (CugoNBTAccessor) golem;
         BlockPos home = accessor.cugo$getHome();
@@ -80,7 +80,7 @@ public class PingChestsBehavior implements CugoBehavior {
             BlockState homeState = level.getBlockState(home);
             boolean isValidHome = homeState.getBlock() instanceof ChestBlock && homeState.is(BlockTags.COPPER_CHESTS);
             if (!isValidHome) {
-                Debug.log("[PingChests] Home chest at " + home + " is invalid or destroyed. Clearing home.");
+                Dev.log("[PingChests] Home chest at " + home + " is invalid or destroyed. Clearing home.");
                 accessor.cugo$setHome(null);
                 home = null;
             }
@@ -152,7 +152,7 @@ public class PingChestsBehavior implements CugoBehavior {
     }
 
     private void reportToAll(CopperGolem golem, ServerLevel level, String message) {
-        Debug.log("[PingChests] " + message);
+        Dev.log("[PingChests] " + message);
         level.players().stream()
                 .filter(p -> p.distanceTo(golem) < 32.0f)
                 .forEach(p -> p.sendSystemMessage(
@@ -181,7 +181,7 @@ public class PingChestsBehavior implements CugoBehavior {
                 if (currentHome == null && state.is(BlockTags.COPPER_CHESTS)) {
                     accessor.cugo$setHome(repPos);
                     currentHome = repPos;
-                    Debug.log("[PingChests] ! FOUND HOME ! Assigned Copper Chest at " + repPos);
+                    Dev.log("[PingChests] ! FOUND HOME ! Assigned Copper Chest at " + repPos);
                     newSeen.add(repPos);
                 } else {
                     newSeen.add(repPos);

@@ -19,7 +19,7 @@ import net.minecraft.world.level.gameevent.GameEvent;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import net.nullcoil.cugo.util.CugoWeatheringAccessor;
-import net.nullcoil.cugo.util.Debug;
+import net.nullcoil.cugo.util.Dev;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -62,13 +62,13 @@ public abstract class Cugo_WeatheringMixin extends Entity implements CugoWeather
 
         if (this.tickCount % 20 == 0) {
             if (this.random.nextFloat() < 0.000833f) {
-                Debug.log("Natural Oxidation Roll Passed! Advancing Stage from " + getWeatherState());
+                Dev.log("Natural Oxidation Roll Passed! Advancing Stage from " + getWeatherState());
                 cugo$advanceStage();
             }
         }
 
         if (shutdownTimer > 100) {
-            Debug.log("System halted. Converting to statue");
+            Dev.log("System halted. Converting to statue");
             cugo$convertToStatue(false);
         }
     }
@@ -87,7 +87,7 @@ public abstract class Cugo_WeatheringMixin extends Entity implements CugoWeather
         }
 
         if(shutdownTimer > 100) {
-            Debug.log("System halted. Converting to statue");
+            Dev.log("System halted. Converting to statue");
             cugo$convertToStatue(false);
         }
     }
@@ -95,7 +95,7 @@ public abstract class Cugo_WeatheringMixin extends Entity implements CugoWeather
     @Override
     public void cugo$startShutdown() {
         if (!this.isDying) {
-            Debug.log("Shutdown sequence triggered via accessor.");
+            Dev.log("Shutdown sequence triggered via accessor.");
             this.isDying = true;
             this.shutdownTimer = 0;
         }

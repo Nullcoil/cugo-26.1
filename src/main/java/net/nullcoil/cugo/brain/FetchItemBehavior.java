@@ -14,7 +14,7 @@ import net.minecraft.world.level.block.CopperChestBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.nullcoil.cugo.config.ConfigHandler;
 import net.nullcoil.cugo.util.CugoNBTAccessor;
-import net.nullcoil.cugo.util.Debug;
+import net.nullcoil.cugo.util.Dev;
 import net.nullcoil.cugo.util.DoubleChestHelper;
 import net.nullcoil.cugo.util.StateMachine;
 import org.jetbrains.annotations.NotNull;
@@ -39,7 +39,7 @@ public class FetchItemBehavior implements CugoBehavior {
     public void tick(@NotNull CopperGolem golem, @NotNull ServerLevel level) {
         // ABORT: Already holding something — hand the control back immediately.
         if (!golem.getMainHandItem().isEmpty()) {
-            Debug.log("[FetchChest] Item in hand detected mid-behavior. Aborting.");
+            Dev.log("[FetchChest] Item in hand detected mid-behavior. Aborting.");
             return; // don't reset — let CugoBrain handle it
         }
 
@@ -60,7 +60,7 @@ public class FetchItemBehavior implements CugoBehavior {
         BlockPos home = accessor.cugo$getHome();
 
         if (home == null) {
-            Debug.log("[FetchChest] No home chest known. Behavior cannot start.");
+            Dev.log("[FetchChest] No home chest known. Behavior cannot start.");
             phase = StateMachine.Phase.DONE;
             return;
         }
@@ -69,7 +69,7 @@ public class FetchItemBehavior implements CugoBehavior {
         chestQueue = buildCopperChestQueue(home, accessor.cugo$getSeenChests(), level);
 
         if (chestQueue.isEmpty()) {
-            Debug.log("[FetchChest] No valid copper chests found. Behavior cannot start.");
+            Dev.log("[FetchChest] No valid copper chests found. Behavior cannot start.");
             phase = StateMachine.Phase.DONE;
             return;
         }
@@ -81,13 +81,13 @@ public class FetchItemBehavior implements CugoBehavior {
 
     private void tickPathing(@NotNull CopperGolem golem, @NotNull ServerLevel level) {
         if (currentTarget == null) {
-            Debug.log("[FetchChest] currentTarget lost during PATHING. Aborting.");
+            Dev.log("[FetchChest] currentTarget lost during PATHING. Aborting.");
             phase = StateMachine.Phase.DONE;
             return;
         }
 
         if (!isValidCopperChest(level, currentTarget)) {
-            Debug.log("[FetchChest] Target chest at " + currentTarget + " no longer valid. Skipping.");
+            Dev.log("[FetchChest] Target chest at " + currentTarget + " no longer valid. Skipping.");
             advanceToNextChest(golem, level);
             return;
         }
@@ -105,7 +105,7 @@ public class FetchItemBehavior implements CugoBehavior {
         }
 
         if (isCloseEnough(golem, currentTarget)) {
-            Debug.log("[FetchChest] Arrived at chest " + currentTarget + ". Beginning open sequence.");
+            Dev.log("[FetchChest] Arrived at chest " + currentTarget + ". Beginning open sequence.");
             golem.getNavigation().stop();
             openingTimer = 0;
             phase = StateMachine.Phase.OPENING;
@@ -131,7 +131,7 @@ public class FetchItemBehavior implements CugoBehavior {
 
         if (openingTimer == 1) {
             BlockState state = level.getBlockState(currentTarget);
-            Debug.log("[FetchChest] Opening chest at " + currentTarget + " | block=" + state.getBlock());
+            Dev.log("[FetchChest] Opening chest at " + currentTarget + " | block=" + state.getBlock());
 
             golem.setOpenedChestPos(currentTarget);
             level.blockEvent(currentTarget, state.getBlock(), 1, 1);
@@ -163,13 +163,13 @@ public class FetchItemBehavior implements CugoBehavior {
             ItemStack grabbed = extractStack(inventory, golem);
             if (!grabbed.isEmpty()) {
                 golem.setItemInHand(InteractionHand.MAIN_HAND, grabbed);
-                Debug.log("[FetchChest] Grabbed " + grabbed.getCount() + "x " + grabbed.getItem() + " from " + currentTarget);
+                Dev.log("[FetchChest] Grabbed " + grabbed.getCount() + "x " + grabbed.getItem() + " from " + currentTarget);
                 phase = StateMachine.Phase.DONE;
                 return;
             }
         }
 
-        Debug.log("[FetchChest] No item grabbed from " + currentTarget + ". Advancing to next chest.");
+        Dev.log("[FetchChest] No item grabbed from " + currentTarget + ". Advancing to next chest.");
         advanceToNextChest(golem, level);
     }
 
@@ -187,12 +187,12 @@ public class FetchItemBehavior implements CugoBehavior {
                 );
                 pathCooldown = 20;
                 phase = StateMachine.Phase.PATHING;
-                Debug.log("[FetchChest] Next target: " + candidate);
+                Dev.log("[FetchChest] Next target: " + candidate);
                 return;
             }
         }
 
-        Debug.log("[FetchChest] Queue exhausted. No item found.");
+        Dev.log("[FetchChest] Queue exhausted. No item found.");
         phase = StateMachine.Phase.DONE;
     }
 
@@ -289,7 +289,7 @@ public class FetchItemBehavior implements CugoBehavior {
         }
 
         accessor.cugo$addRummagedChest(new ChestMemory(pos, snapshot, type));
-        Debug.log("[FetchChest] Recorded rummage at " + pos + " (" + snapshot.size() + " slot(s) with items).");
+        Dev.log("[FetchChest] Recorded rummage at " + pos + " (" + snapshot.size() + " slot(s) with items).");
     }
 
     // --- State queries used by CugoBrain ---
