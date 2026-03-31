@@ -1,0 +1,26 @@
+{
+  "required": true,
+  "package": "net.nullcoil.cugo.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [
+    "block.PoweredBlockMixin",
+    "coppergolem.Cugo_BrainTransplant",
+    "coppergolem.Cugo_DropEquipmentMixin",
+    "coppergolem.Cugo_InteractionMixin",
+    "coppergolem.Cugo_InteractionRangeMixin",
+    "coppergolem.Cugo_LobotomizeVanillaBrain",
+    "coppergolem.Cugo_NBTMachine",
+    "coppergolem.Cugo_PainMixin",
+    "coppergolem.Cugo_SpawnStackTrace",
+    "coppergolem.Cugo_WeatheringMixin",
+    "coppergolemstatueblock.CopperGolemStatueBlockAccessor",
+    "coppergolemstatueblock.Cugo_StatueRechargeMixin",
+    "coppergolemstatueblock.Cugo_WeatheringStatueRechargeMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+	}
+}
