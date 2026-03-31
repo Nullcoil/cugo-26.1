@@ -86,43 +86,29 @@ public class FetchItemBehavior implements CugoBehavior {
             return;
         }
 
-        // Check if the chest is still valid (not broken etc.)
         if (!isValidCopperChest(level, currentTarget)) {
             Debug.log("[FetchChest] Target chest at " + currentTarget + " no longer valid. Skipping.");
             advanceToNextChest(golem, level);
             return;
         }
 
-        // Issue or refresh path orders.
         if (pathCooldown == 0 || golem.getNavigation().isDone()) {
-            golem.getNavigation().moveTo(
-                    currentTarget.getX() + 0.5,
-                    currentTarget.getY(),
-                    currentTarget.getZ() + 0.5,
-                    1.0d
-            );
-            pathCooldown = 20;
+            if (!isCloseEnough(golem, currentTarget)) {
+                golem.getNavigation().moveTo(
+                        currentTarget.getX() + 0.5,
+                        currentTarget.getY(),
+                        currentTarget.getZ() + 0.5,
+                        1.0d
+                );
+                pathCooldown = 20;
+            }
         }
 
-        Debug.log("[GrabChest] tickPathing | navDone=" + golem.getNavigation().isDone()
-                + " pathCooldown=" + pathCooldown
-                + " pos=" + golem.blockPosition()
-                + " target=" + currentTarget);
         if (isCloseEnough(golem, currentTarget)) {
-            Debug.log("[FetchChest] Arrived at chest " + currentTarget + ". Beginning open sequence");
+            Debug.log("[FetchChest] Arrived at chest " + currentTarget + ". Beginning open sequence.");
             golem.getNavigation().stop();
             openingTimer = 0;
             phase = StateMachine.Phase.OPENING;
-        } else {
-            // Log every 20 ticks so you're not spammed
-            if (pathCooldown == 0) {
-                double dx = Math.abs(golem.getX() - (currentTarget.getX() + 0.5));
-                double dz = Math.abs(golem.getZ() - (currentTarget.getZ() + 0.5));
-                double dy = Math.abs(golem.getY() - currentTarget.getY());
-                Debug.log("[GrabChest] CLOSE CHECK | golemX=" + golem.getX() + " golemZ=" + golem.getZ()
-                        + " | dx=" + dx + " dz=" + dz + " dy=" + dy
-                        + " | xzRange=" + ConfigHandler.getConfig().xzInteractRange);
-            }
         }
     }
 
@@ -152,16 +138,10 @@ public class FetchItemBehavior implements CugoBehavior {
             level.playSound(null, currentTarget, SoundEvents.COPPER_CHEST_OPEN, SoundSource.BLOCKS);
 
             Container inventory = DoubleChestHelper.getInventory(level, currentTarget);
-            Debug.log("[FetchChest] Inventory retrieved: " + (inventory != null)
-                    + (inventory != null ? " | size=" + inventory.getContainerSize() : "")
-                    + (inventory != null ? " | isEmpty=" + isEmpty(inventory) : ""));
-
             if (inventory != null && !isEmpty(inventory)) {
-                Debug.log("[FetchChest] Chest has items.");
                 golem.setState(CopperGolemState.GETTING_ITEM);
                 golem.playSound(SoundEvents.COPPER_GOLEM_ITEM_GET);
             } else {
-                Debug.log("[FetchChest] Chest is empty.");
                 golem.setState(CopperGolemState.GETTING_NO_ITEM);
                 golem.playSound(SoundEvents.COPPER_GOLEM_ITEM_NO_GET);
             }

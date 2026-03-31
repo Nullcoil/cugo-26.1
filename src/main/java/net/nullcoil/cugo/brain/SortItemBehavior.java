@@ -82,31 +82,22 @@ public class SortItemBehavior implements CugoBehavior {
         }
 
         if (pathCooldown == 0 || golem.getNavigation().isDone()) {
-            golem.getNavigation().moveTo(
-                    currentTarget.getX() + 0.5,
-                    currentTarget.getY(),
-                    currentTarget.getZ() + 0.5,
-                    1.0d
-            );
-            pathCooldown = 20;
+            if (!isCloseEnough(golem, currentTarget)) {
+                golem.getNavigation().moveTo(
+                        currentTarget.getX() + 0.5,
+                        currentTarget.getY(),
+                        currentTarget.getZ() + 0.5,
+                        1.0d
+                );
+                pathCooldown = 20;
+            }
         }
 
         if (isCloseEnough(golem, currentTarget)) {
-            Debug.log("[SortItem] Arrived at chest " + currentTarget + ". Beginning open sequence");
+            Debug.log("[SortItem] Arrived at chest " + currentTarget + ". Beginning open sequence.");
             golem.getNavigation().stop();
             openingTimer = 0;
             phase = StateMachine.Phase.OPENING;
-        } else {
-            // Log every 20 ticks so you're not spammed
-            if (pathCooldown == 0) {
-                double dx = Math.abs(golem.getX() - (currentTarget.getX() + 0.5));
-                double dz = Math.abs(golem.getZ() - (currentTarget.getZ() + 0.5));
-                double dy = Math.abs(golem.getY() - currentTarget.getY());
-                Debug.log("[SortItem] Not close enough yet. dx=" + dx + " dy=" + dy + " dz=" + dz
-                        + " | xzRange=" + ConfigHandler.getConfig().xzInteractRange
-                        + " yRange=" + ConfigHandler.getConfig().yInteractRange
-                        + " | navDone=" + golem.getNavigation().isDone());
-            }
         }
     }
 
@@ -127,24 +118,17 @@ public class SortItemBehavior implements CugoBehavior {
 
         if (openingTimer == 1) {
             BlockState state = level.getBlockState(currentTarget);
-            Debug.log("[SortItem] Opening chest at " + currentTarget + " | block=" + state.getBlock());
+            Debug.log("[SortChest] Opening chest at " + currentTarget + " | block=" + state.getBlock());
 
             golem.setOpenedChestPos(currentTarget);
             level.blockEvent(currentTarget, state.getBlock(), 1, 1);
-            level.playSound(null, currentTarget, SoundEvents.CHEST_OPEN, SoundSource.BLOCKS, 1.0F, 1.0F);
+            level.playSound(null, currentTarget, SoundEvents.CHEST_OPEN, SoundSource.BLOCKS);
 
             Container inventory = DoubleChestHelper.getInventory(level, currentTarget);
-            Debug.log("[SortItem] Inventory retrieved: " + (inventory != null)
-                    + (inventory != null ? " | size=" + inventory.getContainerSize() : "")
-                    + (inventory != null ? " | isEmpty=" + isEmpty(inventory) : ""));
-
-            if (inventory != null && purityCheck(golem, inventory)) {
-                Debug.log("[SortItem] Purity check PASSED.");
+            if (inventory != null && !isEmpty(inventory)) {
                 golem.setState(CopperGolemState.DROPPING_ITEM);
                 golem.playSound(SoundEvents.COPPER_GOLEM_ITEM_DROP);
             } else {
-                Debug.log("[SortItem] Purity check FAILED."
-                        + (inventory == null ? " (inventory is null)" : ""));
                 golem.setState(CopperGolemState.DROPPING_NO_ITEM);
                 golem.playSound(SoundEvents.COPPER_GOLEM_ITEM_NO_DROP);
             }
