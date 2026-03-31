@@ -22,6 +22,7 @@ public class CugoBrain implements CugoBehavior {
     private FetchItemBehavior fetchBehavior;
     private SortItemBehavior sortBehavior;
     private BatteryBehavior batteryBehavior;
+    private PassivePowerBehavior passivePower;
 
     private MoveControl vanillaMoveControl;
     private TightMoveControl tightMoveControl;
@@ -38,6 +39,8 @@ public class CugoBrain implements CugoBehavior {
         this.sortBehavior = new SortItemBehavior();
         this.batteryBehavior = new BatteryBehavior();
 
+        this.passivePower = new PassivePowerBehavior();
+
         this.vanillaMoveControl = golem.getMoveControl();
         this.tightMoveControl = new TightMoveControl(golem);
         this.batteryBehavior.setMoveControl(tightMoveControl); // ← wire it in
@@ -48,6 +51,8 @@ public class CugoBrain implements CugoBehavior {
     @Override
     public void tick(@NotNull CopperGolem golem, @NotNull ServerLevel level) {
         if (ConfigHandler.getConfig().rechargeableGolems) {
+            this.passivePower.tick(golem, level);
+
             batteryBehavior.setPanicking(currentState == StateMachine.State.PANIC);
             batteryBehavior.tick(golem, level);
 

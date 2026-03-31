@@ -25,7 +25,10 @@ public class Config {
     public int chargeTime = 30; // in seconds. By default, from 0% to 100%, it takes 30 seconds.
     public int panicWasteMultiplier = 20; // while panicked, charge time goes down by this value per tick.
 
-    public boolean passiveCharge = false; // if true, CuGO can charge by casually walking through a valid charge location
+    public boolean passiveCharge = true; // if true, CuGO can charge by casually walking through a valid charge location
+    public double passiveChargeRateMultiplier = 0.25;
+
+    public boolean consumeConsumables = true;
 
     public Config() {}
 }
