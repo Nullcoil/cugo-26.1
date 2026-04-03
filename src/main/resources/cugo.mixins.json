@@ -17,12 +17,17 @@
     "coppergolemstatueblock.CopperGolemStatueBlockAccessor",
     "coppergolemstatueblock.Cugo_StatueRechargeMixin",
     "coppergolemstatueblock.Cugo_WeatheringStatueRechargeMixin",
-    "mob.MobMoveMixin"
+    "hostility.Cugo_DrownedTargetMixin",
+    "hostility.Cugo_IllagerTargetMixin",
+    "hostility.Cugo_RavagerTargetMixin",
+    "hostility.Cugo_ZombieTargetMixin",
+    "mob.MobMoveMixin",
+    "mob.MobTargetSelectorAccessor"
   ],
   "injectors": {
     "defaultRequire": 1
   },
   "overwrites": {
     "requireAnnotations": true
-	}
+  }
 }

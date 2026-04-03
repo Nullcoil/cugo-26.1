@@ -7,8 +7,8 @@ import net.minecraft.world.entity.animal.golem.CopperGolem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.WeatheringCopper;
+import net.nullcoil.cugo.config.ConfigHandler;
 import net.nullcoil.cugo.util.CugoWeatheringAccessor;
-import net.nullcoil.cugo.config.ConfigHandler; // Added import
 import org.jetbrains.annotations.NotNull;
 
 public class SelfPreservationBehavior implements CugoBehavior {

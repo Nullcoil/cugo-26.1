@@ -1,10 +1,8 @@
 package net.nullcoil.cugo;
 
 import net.fabricmc.api.ModInitializer;
-
 import net.nullcoil.cugo.attribute.CugoAttributes;
 import net.nullcoil.cugo.config.ConfigHandler;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

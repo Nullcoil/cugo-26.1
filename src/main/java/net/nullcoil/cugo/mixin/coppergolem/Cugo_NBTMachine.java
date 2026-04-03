@@ -2,10 +2,10 @@ package net.nullcoil.cugo.mixin.coppergolem;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.entity.animal.golem.CopperGolem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
-import net.minecraft.world.entity.animal.golem.CopperGolem;
 import net.nullcoil.cugo.brain.ChestMemory;
 import net.nullcoil.cugo.util.CugoNBTAccessor;
 import net.nullcoil.cugo.util.StateMachine;

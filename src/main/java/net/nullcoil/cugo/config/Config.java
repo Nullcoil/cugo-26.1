@@ -1,7 +1,7 @@
 package net.nullcoil.cugo.config;
 
 public class Config {
-    public boolean debugMode = true;
+    public boolean debugMode = false;
     public boolean redstoneBoost = true;
     public boolean rechargeableStatues = true;
     public boolean rechargeableGolems = true;
