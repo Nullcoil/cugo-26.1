@@ -24,8 +24,20 @@ public class RandomWanderBehavior implements CugoBehavior {
     private final int maxWanderTicks = ConfigHandler.getConfig().wanderTime * 20;
     private boolean wanderTimeExpired = false;
 
+    private boolean paused = false;
+
+    public void pause() {
+        this.paused = true;
+        Dev.log("[Wander] Paused.");
+    }
+    public void resume() {
+        this.paused = false;
+        Dev.log("[Wander] Resumed.");
+    }
+
     @Override
     public void tick(@NotNull CopperGolem golem, @NotNull ServerLevel level) {
+        if (paused) return;
         // Count up while wandering
         wanderTicks++;
         if (wanderTicks >= maxWanderTicks) {

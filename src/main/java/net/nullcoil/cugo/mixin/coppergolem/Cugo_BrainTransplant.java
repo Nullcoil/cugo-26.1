@@ -4,6 +4,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.animal.golem.CopperGolem;
 import net.nullcoil.cugo.brain.CugoBrain;
 import net.nullcoil.cugo.util.CugoBrainAccessor;
+import net.nullcoil.cugo.util.Dev;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;

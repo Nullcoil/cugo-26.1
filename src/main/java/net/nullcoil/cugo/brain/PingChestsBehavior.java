@@ -58,14 +58,8 @@ public class PingChestsBehavior implements CugoBehavior {
 
         // Chunk scan
         BlockPos golemPos = golem.blockPosition();
-        ChunkPos startChunk = new ChunkPos(
-                golemPos.offset(-SEARCH_RADIUS, 0, -SEARCH_RADIUS).getX(),
-                golemPos.offset(-SEARCH_RADIUS, 0, -SEARCH_RADIUS).getZ()
-        );
-        ChunkPos endChunk = new ChunkPos(
-                golemPos.offset(SEARCH_RADIUS, 0, SEARCH_RADIUS).getX(),
-                golemPos.offset(SEARCH_RADIUS, 0, SEARCH_RADIUS).getZ()
-        );
+        ChunkPos startChunk = ChunkPos.containing(golemPos.offset(-SEARCH_RADIUS, 0, -SEARCH_RADIUS));
+        ChunkPos endChunk = ChunkPos.containing(golemPos.offset(SEARCH_RADIUS, 0, SEARCH_RADIUS));
 
         for (int x = startChunk.x(); x <= endChunk.x(); x++) {
             for (int z = startChunk.z(); z <= endChunk.z(); z++) {
@@ -174,16 +168,18 @@ public class PingChestsBehavior implements CugoBehavior {
             // --- Logic for Chests ---
             if (state.getBlock() instanceof ChestBlock) {
                 BlockPos repPos = DoubleChestHelper.getRepresentativePos(level, pos);
-
                 if (newSeen.contains(repPos)) continue;
 
-                // Logic: Found a Copper Chest and don't have a home?
                 if (currentHome == null && state.is(BlockTags.COPPER_CHESTS)) {
                     accessor.cugo$setHome(repPos);
                     currentHome = repPos;
                     Dev.log("[PingChests] ! FOUND HOME ! Assigned Copper Chest at " + repPos);
                     newSeen.add(repPos);
                 } else {
+                    // ADD THIS:
+                    if (currentHome == null) {
+                        Dev.log("[PingChests] Found ChestBlock at " + repPos + " but it failed COPPER_CHESTS tag check. Block: " + state.getBlock());
+                    }
                     newSeen.add(repPos);
                 }
             } else if ((state.getBlock() instanceof BarrelBlock && ConfigHandler.getConfig().barrelAsOutput) ||

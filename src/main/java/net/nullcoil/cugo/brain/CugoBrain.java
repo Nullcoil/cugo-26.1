@@ -7,6 +7,7 @@ import net.minecraft.world.entity.ai.control.MoveControl;
 import net.minecraft.world.entity.animal.golem.CopperGolem;
 import net.nullcoil.cugo.brain.movecontrol.TightMoveControl;
 import net.nullcoil.cugo.config.ConfigHandler;
+import net.nullcoil.cugo.util.Dev;
 import net.nullcoil.cugo.util.MobMoveControlAccessor;
 import net.nullcoil.cugo.util.StateMachine;
 import org.jetbrains.annotations.NotNull;
@@ -47,8 +48,7 @@ public class CugoBrain implements CugoBehavior {
 
         this.self = golem;
 
-        this.lingerBehavior.reset();
-        this.currentState = StateMachine.State.LINGERING;
+        this.currentState = StateMachine.State.PINGING;
     }
 
     @Override
@@ -137,6 +137,7 @@ public class CugoBrain implements CugoBehavior {
                 // wanderTime expired → break out of routine, go fetch.
                 if (wanderBehavior.wanderTimeExpired()) {
                     wanderBehavior.resetWanderChance();
+                    wanderBehavior.pause();
                     fetchBehavior.reset();
                     currentState = StateMachine.State.FETCHING;
                     return;
@@ -144,6 +145,7 @@ public class CugoBrain implements CugoBehavior {
 
                 // Fibo chance triggered linger.
                 if (wanderBehavior.shouldLinger()) {
+                    wanderBehavior.pause();
                     lingerBehavior.reset();
                     currentState = StateMachine.State.LINGERING;
                 }
@@ -158,7 +160,7 @@ public class CugoBrain implements CugoBehavior {
             case PINGING -> {
                 pingBehavior.tick(golem, level);
                 wanderBehavior.resetWanderChance();
-                // After ping, resume wandering (routine loop continues).
+                wanderBehavior.resume();
                 currentState = StateMachine.State.WANDERING;
             }
         }
@@ -180,5 +182,6 @@ public class CugoBrain implements CugoBehavior {
         currentState = StateMachine.State.WANDERING;
         wanderBehavior.resetWanderChance();
         wanderBehavior.resetWanderTime(); // Fresh budget every time we enter WANDER
+        wanderBehavior.resume();
     }
 }

@@ -4,7 +4,7 @@ public class Config {
     public boolean debugMode = false;
     public boolean redstoneBoost = true;
     public boolean rechargeableStatues = true;
-    public boolean rechargeableGolems = true;
+    public boolean rechargeableGolems = false;
     public boolean damageItemsOnUse = true;
     public boolean barrelAsOutput = true;
     public boolean shulkerAsOutput = true;
