@@ -46,6 +46,9 @@ public class CugoBrain implements CugoBehavior {
         this.batteryBehavior.setMoveControl(tightMoveControl); // ← wire it in
 
         this.self = golem;
+
+        this.lingerBehavior.reset();
+        this.currentState = StateMachine.State.LINGERING;
     }
 
     @Override

@@ -5,6 +5,7 @@ import net.minecraft.world.entity.ai.util.LandRandomPos;
 import net.minecraft.world.entity.animal.golem.CopperGolem;
 import net.minecraft.world.phys.Vec3;
 import net.nullcoil.cugo.config.ConfigHandler;
+import net.nullcoil.cugo.util.Dev;
 import org.jetbrains.annotations.NotNull;
 
 public class RandomWanderBehavior implements CugoBehavior {
@@ -56,6 +57,7 @@ public class RandomWanderBehavior implements CugoBehavior {
         int nextValue = preStepSubtractor + stepSubtractor;
         preStepSubtractor = stepSubtractor;
         stepSubtractor = nextValue;
+        Dev.log(wanderChance);
     }
 
     public void resetWanderChance() {
