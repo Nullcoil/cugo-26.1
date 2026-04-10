@@ -1,4 +1,4 @@
-package net.nullcoil.cugo.brain;
+package net.nullcoil.cugo.brain.memories;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;

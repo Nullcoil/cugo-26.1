@@ -6,7 +6,7 @@ import net.minecraft.world.entity.animal.golem.CopperGolem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
-import net.nullcoil.cugo.brain.ChestMemory;
+import net.nullcoil.cugo.brain.memories.ChestMemory;
 import net.nullcoil.cugo.util.CugoNBTAccessor;
 import net.nullcoil.cugo.util.StateMachine;
 import org.spongepowered.asm.mixin.Mixin;

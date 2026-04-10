@@ -1,7 +1,7 @@
 package net.nullcoil.cugo.util;
 
 import net.minecraft.core.BlockPos;
-import net.nullcoil.cugo.brain.ChestMemory;
+import net.nullcoil.cugo.brain.memories.ChestMemory;
 
 import java.util.List;
 import java.util.Set;

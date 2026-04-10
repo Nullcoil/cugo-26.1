@@ -1,6 +1,7 @@
 package net.nullcoil.cugo.brain;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -13,6 +14,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.BarrelBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.nullcoil.cugo.brain.memories.ChestMemory;
 import net.nullcoil.cugo.config.ConfigHandler;
 import net.nullcoil.cugo.util.CugoNBTAccessor;
 import net.nullcoil.cugo.util.Dev;
@@ -29,6 +31,7 @@ public class SortItemBehavior implements CugoBehavior {
     private StateMachine.Phase phase = StateMachine.Phase.IDLE;
     private List<BlockPos> chestQueue = new ArrayList<>();
     private @Nullable BlockPos currentTarget = null;
+    private @Nullable BlockPos currentApproachPos = null;
     private int openingTimer = 0;
     private int pathCooldown = 0;
     private static final int OPEN_DURATION = 60;
@@ -91,10 +94,11 @@ public class SortItemBehavior implements CugoBehavior {
 
         if (pathCooldown == 0 || golem.getNavigation().isDone()) {
             if (!isCloseEnough(golem, currentTarget)) {
+                BlockPos approach = currentApproachPos != null ? currentApproachPos : currentTarget;
                 golem.getNavigation().moveTo(
-                        currentTarget.getX() + 0.5,
-                        currentTarget.getY(),
-                        currentTarget.getZ() + 0.5,
+                        approach.getX() + 0.5,
+                        approach.getY(),
+                        approach.getZ() + 0.5,
                         1.0d
                 );
                 pathCooldown = 20;
@@ -195,10 +199,11 @@ public class SortItemBehavior implements CugoBehavior {
             BlockPos candidate = chestQueue.remove(0);
             if (isValidContainer(level, candidate)) {
                 currentTarget = candidate;
+                this.currentApproachPos = getBestApproachPos(golem, candidate, level);
                 golem.getNavigation().moveTo(
-                        candidate.getX() + 0.5,
-                        candidate.getY(),
-                        candidate.getZ() + 0.5,
+                        this.currentApproachPos.getX() + 0.5,
+                        this.currentApproachPos.getY(),
+                        this.currentApproachPos.getZ() + 0.5,
                         1.0d
                 );
                 pathCooldown = 20;
@@ -212,10 +217,37 @@ public class SortItemBehavior implements CugoBehavior {
         phase = StateMachine.Phase.DONE;
     }
 
+    private BlockPos getBestApproachPos(@NotNull CopperGolem golem, @NotNull BlockPos target, @NotNull ServerLevel level) {
+        BlockPos golemPos = golem.blockPosition();
+        BlockPos best = null;
+        double bestDist = Double.MAX_VALUE;
+
+        // Check all 4 horizontal neighbors
+        for (Direction dir : Direction.Plane.HORIZONTAL) {
+            BlockPos candidate = target.relative(dir);
+
+            // Must be a standable position — solid block below, passable at foot and head level
+            BlockPos below = candidate.below();
+            if (!level.getBlockState(below).isSolid()) continue;
+            if (!level.getBlockState(candidate).isAir()) continue;
+            if (!level.getBlockState(candidate.above()).isAir()) continue;
+
+            double dist = candidate.distSqr(golemPos);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = candidate;
+            }
+        }
+
+        // Fall back to chest pos itself if no clear neighbor found
+        return best != null ? best : target;
+    }
+
     public void reset() {
         phase = StateMachine.Phase.IDLE;
         chestQueue.clear();
         currentTarget = null;
+        currentApproachPos = null; // ← clear it
         openingTimer = 0;
         pathCooldown = 0;
     }
