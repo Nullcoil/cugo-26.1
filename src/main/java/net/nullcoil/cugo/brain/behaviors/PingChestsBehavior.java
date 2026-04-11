@@ -1,4 +1,4 @@
-package net.nullcoil.cugo.brain;
+package net.nullcoil.cugo.brain.behaviors;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.DustParticleOptions;
@@ -13,13 +13,16 @@ import net.minecraft.world.level.block.ShulkerBoxBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.pathfinder.Path;
 import net.minecraft.world.phys.Vec3;
+import net.nullcoil.cugo.brain.CugoBehavior;
 import net.nullcoil.cugo.config.ConfigHandler;
 import net.nullcoil.cugo.util.CugoNBTAccessor;
 import net.nullcoil.cugo.util.Dev;
 import net.nullcoil.cugo.util.DoubleChestHelper;
 import net.nullcoil.cugo.util.StateMachine;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.EnumMap;
 import java.util.HashSet;
@@ -64,7 +67,7 @@ public class PingChestsBehavior implements CugoBehavior {
         for (int x = startChunk.x(); x <= endChunk.x(); x++) {
             for (int z = startChunk.z(); z <= endChunk.z(); z++) {
                 if (level.hasChunk(x, z)) {
-                    scanChunkForContainers(level.getChunk(x, z), level, golemPos, home, accessor, newSeen);
+                    scanChunkForContainers(level.getChunk(x, z), level, golemPos, home, accessor, newSeen, golem);
                 }
             }
         }
@@ -90,6 +93,13 @@ public class PingChestsBehavior implements CugoBehavior {
         // Update memory
         currentSeen.clear();
         currentSeen.addAll(newSeen);
+
+        // Remove access positions for chests no longer seen
+        for (BlockPos removed : previouslySeen) {
+            if (!newSeen.contains(removed)) {
+                accessor.cugo$removeAccessPos(removed);
+            }
+        }
 
         // Diff report
         if (ConfigHandler.getConfig().debugMode) {
@@ -154,8 +164,15 @@ public class PingChestsBehavior implements CugoBehavior {
                 ));
     }
 
-    private void scanChunkForContainers(LevelChunk chunk, ServerLevel level, BlockPos center, BlockPos currentHome, CugoNBTAccessor accessor, Set<BlockPos> newSeen) {
-        // Get all BlockEntities in the chunk
+    private void scanChunkForContainers(
+            LevelChunk chunk,
+            ServerLevel level,
+            BlockPos center,
+            BlockPos currentHome,
+            CugoNBTAccessor accessor,
+            Set<BlockPos> newSeen,
+            CopperGolem golem
+    ) {
         Map<BlockPos, BlockEntity> blockEntities = chunk.getBlockEntities();
 
         for (Map.Entry<BlockPos, BlockEntity> entry : blockEntities.entrySet()) {
@@ -165,10 +182,13 @@ public class PingChestsBehavior implements CugoBehavior {
 
             BlockState state = level.getBlockState(pos);
 
-            // --- Logic for Chests ---
             if (state.getBlock() instanceof ChestBlock) {
                 BlockPos repPos = DoubleChestHelper.getRepresentativePos(level, pos);
                 if (newSeen.contains(repPos)) continue;
+
+                BlockPos accessPos = findAccessPos(golem, level, repPos);
+                if (accessPos == null) continue;
+                accessor.cugo$setAccessPos(repPos, accessPos);
 
                 if (currentHome == null && state.is(BlockTags.COPPER_CHESTS)) {
                     accessor.cugo$setHome(repPos);
@@ -176,14 +196,17 @@ public class PingChestsBehavior implements CugoBehavior {
                     Dev.log("[PingChests] ! FOUND HOME ! Assigned Copper Chest at " + repPos);
                     newSeen.add(repPos);
                 } else {
-                    // ADD THIS:
                     if (currentHome == null) {
-                        Dev.log("[PingChests] Found ChestBlock at " + repPos + " but it failed COPPER_CHESTS tag check. Block: " + state.getBlock());
+                        Dev.log("[PingChests] Found ChestBlock at " + repPos
+                                + " but it failed COPPER_CHESTS tag check. Block: " + state.getBlock());
                     }
                     newSeen.add(repPos);
                 }
             } else if ((state.getBlock() instanceof BarrelBlock && ConfigHandler.getConfig().barrelAsOutput) ||
-                       (state.getBlock() instanceof ShulkerBoxBlock && ConfigHandler.getConfig().shulkerAsOutput)) {
+                    (state.getBlock() instanceof ShulkerBoxBlock && ConfigHandler.getConfig().shulkerAsOutput)) {
+                BlockPos accessPos = findAccessPos(golem, level, pos);
+                if (accessPos == null) continue;
+                accessor.cugo$setAccessPos(pos, accessPos);
                 newSeen.add(pos);
             }
         }
@@ -218,5 +241,46 @@ public class PingChestsBehavior implements CugoBehavior {
             Vec3 pos = start.add(direction.scale(frac));
             level.sendParticles(particle, pos.x, pos.y, pos.z, 1, 0.0, 0.0, 0.0, 0.0);
         }
+    }
+
+    private @Nullable BlockPos findAccessPos(@NotNull CopperGolem golem, @NotNull ServerLevel level, @NotNull BlockPos pos) {
+        int xzRadius = (int) Math.ceil(ConfigHandler.getConfig().xzInteractRange / 2.0);
+        int yRadius  = (int) Math.ceil(ConfigHandler.getConfig().yInteractRange);
+
+        BlockPos best = null;
+        double bestDist = Double.MAX_VALUE;
+
+        for (int dy = -yRadius; dy <= yRadius; dy++) {
+            for (int dx = -xzRadius; dx <= xzRadius; dx++) {
+                for (int dz = -xzRadius; dz <= xzRadius; dz++) {
+                    if (dx == 0 && dz == 0) continue;
+
+                    BlockPos foot  = pos.offset(dx, dy, dz);
+                    BlockPos floor = foot.below();
+                    BlockPos head  = foot.above();
+
+                    if (!level.getBlockState(floor).isSolid()) continue;
+                    if (!level.getBlockState(foot).isAir()) continue;
+                    if (!level.getBlockState(head).isAir()) continue;
+
+                    Path path = golem.getNavigation().createPath(foot, 0);
+                    if (path == null || !path.canReach()) continue;
+
+                    double dist = foot.distSqr(golem.blockPosition());
+                    if (dist < bestDist) {
+                        bestDist = dist;
+                        best = foot;
+                    }
+                }
+            }
+        }
+
+        if (best == null) {
+            Dev.log("[PingChests] " + pos + " — no reachable standable position found.");
+        } else {
+            Dev.log("[PingChests] " + pos + " reachable via " + best);
+        }
+
+        return best;
     }
 }

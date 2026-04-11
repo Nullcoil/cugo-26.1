@@ -19,4 +19,9 @@ public interface CugoNBTAccessor {
     List<ChestMemory> cugo$getRummagedChests();
     void cugo$addRummagedChest(ChestMemory memory);
     void cugo$clearRummagedChests();
+
+    void cugo$setAccessPos(BlockPos repPos, BlockPos accessPos);
+    BlockPos cugo$getAccessPos(BlockPos chestPos);
+
+    void cugo$removeAccessPos(BlockPos removed);
 }

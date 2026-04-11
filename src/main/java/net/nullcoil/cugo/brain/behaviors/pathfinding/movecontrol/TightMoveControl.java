@@ -1,4 +1,4 @@
-package net.nullcoil.cugo.brain.movecontrol;
+package net.nullcoil.cugo.brain.behaviors.pathfinding.movecontrol;
 
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -11,7 +11,7 @@ public class TightMoveControl extends MoveControl {
     // Vanilla uses 2.5000003E-7F (~0.0005 blocks).
     // We use 0.0025 (~0.05 blocks) — tight enough to land precisely on a block
     // center without overshooting.
-    private static final double ARRIVAL_THRESHOLD_SQ = 0.0025;
+    private static final double ARRIVAL_THRESHOLD_SQ = 0.04;
 
     public TightMoveControl(CopperGolem golem) {
         super(golem);

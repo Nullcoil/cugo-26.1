@@ -1,9 +1,10 @@
-package net.nullcoil.cugo.brain;
+package net.nullcoil.cugo.brain.behaviors;
 
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.animal.golem.CopperGolem;
 import net.nullcoil.cugo.attribute.CugoAttributes;
+import net.nullcoil.cugo.brain.CugoBehavior;
 import net.nullcoil.cugo.config.ConfigHandler;
 import org.jetbrains.annotations.NotNull;
 

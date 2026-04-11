@@ -14,7 +14,7 @@ public class StateMachine {
         PINGING,
         FETCHING,
         SORTING,
-        PANIC
+        EDGE_CASE, PANIC
     }
 
     public enum Phase {

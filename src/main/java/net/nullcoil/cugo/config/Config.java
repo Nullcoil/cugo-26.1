@@ -1,7 +1,7 @@
 package net.nullcoil.cugo.config;
 
 public class Config {
-    public boolean debugMode = false;
+    public boolean debugMode = true;
     public boolean redstoneBoost = true;
     public boolean rechargeableStatues = true;
     public boolean rechargeableGolems = false;
@@ -16,7 +16,7 @@ public class Config {
 
     public int panicTime = 5;
 
-    public int xzInteractRange = 2;
+    public int xzInteractRange = 3;
     public int yInteractRange = 6;
     public int maxStackSize = 64;
 

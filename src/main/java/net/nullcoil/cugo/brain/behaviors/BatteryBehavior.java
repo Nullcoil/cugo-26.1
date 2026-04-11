@@ -1,4 +1,4 @@
-package net.nullcoil.cugo.brain;
+package net.nullcoil.cugo.brain.behaviors;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -8,7 +8,8 @@ import net.minecraft.world.entity.animal.golem.CopperGolem;
 import net.minecraft.world.entity.animal.golem.CopperGolemState;
 import net.minecraft.world.level.block.state.BlockState;
 import net.nullcoil.cugo.attribute.CugoAttributes;
-import net.nullcoil.cugo.brain.movecontrol.TightMoveControl;
+import net.nullcoil.cugo.brain.CugoBehavior;
+import net.nullcoil.cugo.brain.behaviors.pathfinding.movecontrol.TightMoveControl;
 import net.nullcoil.cugo.config.ConfigHandler;
 import net.nullcoil.cugo.util.Dev;
 import net.nullcoil.cugo.util.StateMachine;

@@ -15,10 +15,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @Mixin(CopperGolem.class)
 public class Cugo_NBTMachine implements CugoNBTAccessor {
@@ -26,6 +23,7 @@ public class Cugo_NBTMachine implements CugoNBTAccessor {
     @Unique private BlockPos homePos = null;
     @Unique private Set<BlockPos> seenChests = new HashSet<>();
     @Unique private List<ChestMemory> rummagedChests = new ArrayList<>();
+    @Unique private Map<BlockPos, BlockPos> accessPositions = new HashMap<>();
 
     // -------------------------------------------------------------------------
     // SAVE
@@ -62,6 +60,15 @@ public class Cugo_NBTMachine implements CugoNBTAccessor {
                         itemEntry.putInt("count", stack.getCount());
                     }
                 }
+            }
+        }
+
+        if (!this.accessPositions.isEmpty()) {
+            ValueOutput.ValueOutputList accessList = output.childrenList("AccessPositions");
+            for (Map.Entry<BlockPos, BlockPos> entry : this.accessPositions.entrySet()) {
+                ValueOutput e = accessList.addChild();
+                e.putLong("ChestPos", entry.getKey().asLong());
+                e.putLong("AccessPos", entry.getValue().asLong());
             }
         }
     }
@@ -105,6 +112,15 @@ public class Cugo_NBTMachine implements CugoNBTAccessor {
 
             this.rummagedChests.add(new ChestMemory(pos, items, type));
         });
+
+        this.accessPositions.clear();
+        input.childrenListOrEmpty("AccessPositions").forEach(entry -> {
+            long chestL  = entry.getLongOr("ChestPos",  Long.MIN_VALUE);
+            long accessL = entry.getLongOr("AccessPos", Long.MIN_VALUE);
+            if (chestL != Long.MIN_VALUE && accessL != Long.MIN_VALUE) {
+                this.accessPositions.put(BlockPos.of(chestL), BlockPos.of(accessL));
+            }
+        });
     }
 
     // -------------------------------------------------------------------------
@@ -121,4 +137,14 @@ public class Cugo_NBTMachine implements CugoNBTAccessor {
     @Override public List<ChestMemory> cugo$getRummagedChests() { return this.rummagedChests; }
     @Override public void cugo$addRummagedChest(ChestMemory memory) { this.rummagedChests.add(memory); }
     @Override public void cugo$clearRummagedChests() { this.rummagedChests.clear(); }
+
+    @Override public void cugo$setAccessPos(BlockPos chestPos, BlockPos accessPos) {
+        this.accessPositions.put(chestPos, accessPos);
+    }
+    @Override public BlockPos cugo$getAccessPos(BlockPos chestPos) {
+        return this.accessPositions.get(chestPos);
+    }
+    @Override public void cugo$removeAccessPos(BlockPos chestPos) {
+        this.accessPositions.remove(chestPos);
+    }
 }

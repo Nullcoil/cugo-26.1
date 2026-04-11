@@ -5,8 +5,13 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.ai.control.MoveControl;
 import net.minecraft.world.entity.animal.golem.CopperGolem;
-import net.nullcoil.cugo.brain.movecontrol.TightMoveControl;
+import net.nullcoil.cugo.brain.behaviors.*;
+import net.nullcoil.cugo.brain.behaviors.pathfinding.EdgeCaseBehavior;
+import net.nullcoil.cugo.brain.behaviors.pathfinding.FetchItemBehavior;
+import net.nullcoil.cugo.brain.behaviors.pathfinding.SortItemBehavior;
+import net.nullcoil.cugo.brain.behaviors.pathfinding.movecontrol.TightMoveControl;
 import net.nullcoil.cugo.config.ConfigHandler;
+import net.nullcoil.cugo.util.CugoNBTAccessor;
 import net.nullcoil.cugo.util.Dev;
 import net.nullcoil.cugo.util.MobMoveControlAccessor;
 import net.nullcoil.cugo.util.StateMachine;
@@ -24,11 +29,15 @@ public class CugoBrain implements CugoBehavior {
     private SortItemBehavior sortBehavior;
     private BatteryBehavior batteryBehavior;
     private PassivePowerBehavior passivePower;
+    private EdgeCaseBehavior edgeCaseBehavior;
 
     private MoveControl vanillaMoveControl;
     private TightMoveControl tightMoveControl;
 
     private CopperGolem self;
+
+    private boolean exhaustedByTMCFailure = false;
+    public boolean wasBlockedByTMC() { return exhaustedByTMCFailure; }
 
     public void onAttach(@NotNull CopperGolem golem) {
         this.wanderBehavior = new RandomWanderBehavior();
@@ -39,12 +48,16 @@ public class CugoBrain implements CugoBehavior {
         this.fetchBehavior = new FetchItemBehavior();
         this.sortBehavior = new SortItemBehavior();
         this.batteryBehavior = new BatteryBehavior();
+        this.edgeCaseBehavior = new EdgeCaseBehavior();
 
         this.passivePower = new PassivePowerBehavior();
 
         this.vanillaMoveControl = golem.getMoveControl();
         this.tightMoveControl = new TightMoveControl(golem);
         this.batteryBehavior.setMoveControl(tightMoveControl); // ← wire it in
+        this.fetchBehavior.setMoveControls(tightMoveControl, vanillaMoveControl);
+        this.sortBehavior.setMoveControls(tightMoveControl, vanillaMoveControl);
+        this.edgeCaseBehavior.setMoveControls(tightMoveControl, vanillaMoveControl);
 
         this.self = golem;
 
@@ -92,20 +105,58 @@ public class CugoBrain implements CugoBehavior {
 
         // ── 3. SORTING ───────────────────────────────────────────────────────
         if (currentState == StateMachine.State.SORTING) {
-            if(golem.getMainHandItem().isEmpty()) {
-                sortBehavior.reset();
-                fetchBehavior.reset();
-                transitionToWander();
-                return;
-            }
             sortBehavior.tick(golem, level);
 
             if (sortBehavior.isDone()) {
+                boolean success = sortBehavior.lastSortSucceeded();
                 sortBehavior.reset();
-                BlockPos returnTarget = fetchBehavior.getLastFetchedFrom(); // grab before reset
+
+                if (success) {
+                    BlockPos returnTarget = fetchBehavior.getLastFetchedFrom();
+                    fetchBehavior.reset();
+                    fetchBehavior.primeWithTarget(returnTarget);
+                    currentState = StateMachine.State.FETCHING;
+                } else {
+                    CugoNBTAccessor accessor = (CugoNBTAccessor) golem;
+                    edgeCaseBehavior.reset();
+                    edgeCaseBehavior.primeWithHome(accessor.cugo$getHome());
+                    currentState = StateMachine.State.EDGE_CASE;
+                }
+                return;
+            }
+
+            // Only bail to wander if sort is not done and hand is empty —
+            // meaning the item vanished unexpectedly mid-behavior.
+            if (golem.getMainHandItem().isEmpty()) {
+                Dev.log("[CugoBrain] Item lost mid-sort unexpectedly. Aborting to wander.");
+                sortBehavior.reset();
                 fetchBehavior.reset();
-                fetchBehavior.primeWithTarget(returnTarget);
-                currentState = StateMachine.State.FETCHING;
+                transitionToWander();
+            }
+        }
+
+        // ── 3.5. EDGE CASE ───────────────────────────────────────────────────
+        if (currentState == StateMachine.State.EDGE_CASE) {
+            edgeCaseBehavior.tick(golem, level);
+
+            if (edgeCaseBehavior.isDone()) {
+                if (edgeCaseBehavior.didSwap()) {
+                    // Displaced item in hand — run SortItem for it first.
+                    sortBehavior.reset();
+                    sortBehavior.primeWithMemory(null, golem.getMainHandItem());
+                    edgeCaseBehavior.reset();
+                    currentState = StateMachine.State.SORTING;
+                } else if (edgeCaseBehavior.didPlace()) {
+                    // Clean placement — go fetch as normal.
+                    edgeCaseBehavior.reset();
+                    fetchBehavior.reset();
+                    currentState = StateMachine.State.FETCHING;
+                } else {
+                    // All copper chests exhausted, nothing placed — give up and wander.
+                    edgeCaseBehavior.reset();
+                    fetchBehavior.reset();
+                    transitionToWander();
+                }
             }
             return;
         }
@@ -171,8 +222,9 @@ public class CugoBrain implements CugoBehavior {
         if (this.panicBehavior != null) this.panicBehavior.reset();
         if (this.fetchBehavior != null) this.fetchBehavior.fullReset();
         if (this.sortBehavior != null) this.sortBehavior.fullReset();
+        if (this.edgeCaseBehavior != null) this.edgeCaseBehavior.reset();
         if (this.self != null) {
-            ((MobMoveControlAccessor)self).cugo$setMoveControl(vanillaMoveControl);
+            ((MobMoveControlAccessor) self).cugo$setMoveControl(vanillaMoveControl);
         }
     }
 

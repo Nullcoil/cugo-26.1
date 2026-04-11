@@ -1,4 +1,4 @@
-package net.nullcoil.cugo.brain;
+package net.nullcoil.cugo.brain.behaviors;
 
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
@@ -7,6 +7,7 @@ import net.minecraft.world.entity.animal.golem.CopperGolem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.WeatheringCopper;
+import net.nullcoil.cugo.brain.CugoBehavior;
 import net.nullcoil.cugo.config.ConfigHandler;
 import net.nullcoil.cugo.util.CugoWeatheringAccessor;
 import org.jetbrains.annotations.NotNull;

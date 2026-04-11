@@ -1,4 +1,4 @@
-package net.nullcoil.cugo.brain;
+package net.nullcoil.cugo.brain.behaviors;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -10,6 +10,7 @@ import net.minecraft.world.entity.animal.golem.SnowGolem;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.nullcoil.cugo.brain.CugoBehavior;
 import net.nullcoil.cugo.config.ConfigHandler;
 import net.nullcoil.cugo.util.CugoNBTAccessor;
 import net.nullcoil.cugo.util.StateMachine;
