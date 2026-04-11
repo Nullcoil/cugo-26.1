@@ -29,6 +29,7 @@ public class Config {
     public double passiveChargeRateMultiplier = 0.25;
 
     public boolean consumeConsumables = true;
+    public int losVerticalThreshold = 1;
 
     public Config() {}
 }

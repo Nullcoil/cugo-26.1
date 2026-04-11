@@ -11,9 +11,13 @@ import net.minecraft.world.entity.ai.control.MoveControl;
 import net.minecraft.world.entity.animal.golem.CopperGolem;
 import net.minecraft.world.entity.animal.golem.CopperGolemState;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.BarrelBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 import net.nullcoil.cugo.brain.CugoBehavior;
 import net.nullcoil.cugo.brain.memories.ChestMemory;
 import net.nullcoil.cugo.brain.behaviors.pathfinding.movecontrol.TightMoveControl;
@@ -143,6 +147,11 @@ public abstract class AbstractChestInteractionBehavior implements CugoBehavior {
         //    This overrides any stall detection.
         // ──────────────────────────────────────────────────────────────────────────
         if (isCloseEnough(golem, currentTarget)) {
+            if (!canAccessChest(level, golem, currentTarget)) {
+                Dev.log("[AbstractChest] No line of sight to chest " + currentTarget + " – skipping.");
+                advanceToNextChest(golem, level);
+                return;
+            }
             Dev.log("[AbstractChest] Already close enough – opening " + currentTarget);
             restoreVanilla(golem);
             golem.getNavigation().stop();
@@ -213,7 +222,12 @@ public abstract class AbstractChestInteractionBehavior implements CugoBehavior {
             double dx = golem.getX() - (currentApproachPos.getX() + 0.5);
             double dz = golem.getZ() - (currentApproachPos.getZ() + 0.5);
             double dy = golem.getY() - currentApproachPos.getY();
-            if (dx * dx + dz * dz < 0.04 && Math.abs(dy) < 1.0) {
+            if (dx * dx + dz * dz < 0.04 && Math.abs(dy) < ConfigHandler.getConfig().losVerticalThreshold) {
+                if (!canAccessChest(level, golem, currentTarget)) {
+                    Dev.log("[AbstractChest] No line of sight to chest " + currentTarget + " – skipping.");
+                    advanceToNextChest(golem, level);
+                    return;
+                }
                 Dev.log("[AbstractChest] TMC arrived at access pos. Opening.");
                 restoreVanilla(golem);
                 golem.getNavigation().stop();
@@ -295,6 +309,11 @@ public abstract class AbstractChestInteractionBehavior implements CugoBehavior {
         );
 
         if (openingTimer == 1) {
+            if (!canAccessChest(level, golem, currentTarget)) {
+                Dev.log("[AbstractChest] No line of sight - skipping " + currentTarget);
+                advanceToNextChest(golem, level);
+                return;
+            }
             BlockState state = level.getBlockState(currentTarget);
             Dev.log("[AbstractChest] Opening " + state.getBlock() + " at " + currentTarget);
 
@@ -323,6 +342,7 @@ public abstract class AbstractChestInteractionBehavior implements CugoBehavior {
     // ------------------------------------------------------------------------
 
     protected void advanceToNextChest(@NotNull CopperGolem golem, @NotNull ServerLevel level) {
+        restoreVanilla(golem);
         golem.clearOpenedChestPos();
         while (!chestQueue.isEmpty()) {
             BlockPos candidate = chestQueue.remove(0);
@@ -425,6 +445,27 @@ public abstract class AbstractChestInteractionBehavior implements CugoBehavior {
                     state.is(BlockTags.SHULKER_BOXES) ? SoundEvents.SHULKER_BOX_CLOSE : SoundEvents.CHEST_CLOSE,
                     SoundSource.BLOCKS, 1.0F, 1.0F);
         }
+    }
+
+    private boolean canAccessChest(ServerLevel level, CopperGolem golem, BlockPos chestPos) {
+        double dy = golem.getY() - (chestPos.getY() + 0.5);
+        int verticalDifference = (int) Math.abs(dy);
+
+        // If chest is within 1 block vertically (floor/ceiling adjacent), always allow
+        if (verticalDifference <= ConfigHandler.getConfig().losVerticalThreshold) {
+            return true;
+        }
+
+        // Otherwise require line of sight
+        Vec3 eyePos = golem.getEyePosition();
+        Vec3 chestCenter = Vec3.atCenterOf(chestPos);
+        BlockHitResult hit = level.clip(new ClipContext(
+                eyePos, chestCenter,
+                ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE,
+                golem
+        ));
+        return hit.getType() == HitResult.Type.MISS || hit.getBlockPos().equals(chestPos);
     }
 
     // ------------------------------------------------------------------------
