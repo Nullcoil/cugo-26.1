@@ -54,10 +54,6 @@ public class CugoBrain implements CugoBehavior {
 
         this.vanillaMoveControl = golem.getMoveControl();
         this.tightMoveControl = new TightMoveControl(golem);
-        this.batteryBehavior.setMoveControl(tightMoveControl); // ← wire it in
-        this.fetchBehavior.setMoveControls(tightMoveControl, vanillaMoveControl);
-        this.sortBehavior.setMoveControls(tightMoveControl, vanillaMoveControl);
-        this.edgeCaseBehavior.setMoveControls(tightMoveControl, vanillaMoveControl);
 
         this.self = golem;
 
@@ -187,7 +183,6 @@ public class CugoBrain implements CugoBehavior {
 
                 // wanderTime expired → break out of routine, go fetch.
                 if (wanderBehavior.wanderTimeExpired()) {
-                    wanderBehavior.resetWanderChance();
                     wanderBehavior.pause();
                     fetchBehavior.reset();
                     currentState = StateMachine.State.FETCHING;

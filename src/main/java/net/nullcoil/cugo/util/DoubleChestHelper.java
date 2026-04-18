@@ -26,6 +26,22 @@ public class DoubleChestHelper {
         return pos;
     }
 
+    public static AABB getInteractionBox(Level level, BlockPos pos,
+                                         double horiz, double vert) {
+        AABB base = getChestBounds(level, pos); // already covers both halves
+        return base.inflate(horiz, vert, horiz);
+    }
+
+    @Nullable
+    public static BlockPos getOtherHalf(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof ChestBlock)) return null;
+        ChestType type = state.getValue(ChestBlock.TYPE);
+        if (type == ChestType.SINGLE) return null;
+        Direction connectedDir = ChestBlock.getConnectedDirection(state);
+        return pos.relative(connectedDir);
+    }
+
     public static AABB getChestBounds(Level level, BlockPos pos) {
         BlockState state = level.getBlockState(pos);
         AABB box = new AABB(pos);

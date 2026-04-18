@@ -94,13 +94,6 @@ public class PingChestsBehavior implements CugoBehavior {
         currentSeen.clear();
         currentSeen.addAll(newSeen);
 
-        // Remove access positions for chests no longer seen
-        for (BlockPos removed : previouslySeen) {
-            if (!newSeen.contains(removed)) {
-                accessor.cugo$removeAccessPos(removed);
-            }
-        }
-
         // Diff report
         if (ConfigHandler.getConfig().debugMode) {
             Set<BlockPos> added = new HashSet<>(newSeen);
@@ -186,27 +179,18 @@ public class PingChestsBehavior implements CugoBehavior {
                 BlockPos repPos = DoubleChestHelper.getRepresentativePos(level, pos);
                 if (newSeen.contains(repPos)) continue;
 
-                BlockPos accessPos = findAccessPos(golem, level, repPos);
-                if (accessPos == null) continue;
-                accessor.cugo$setAccessPos(repPos, accessPos);
-
                 if (currentHome == null && state.is(BlockTags.COPPER_CHESTS)) {
                     accessor.cugo$setHome(repPos);
                     currentHome = repPos;
                     Dev.log("[PingChests] ! FOUND HOME ! Assigned Copper Chest at " + repPos);
-                    newSeen.add(repPos);
-                } else {
-                    if (currentHome == null) {
-                        Dev.log("[PingChests] Found ChestBlock at " + repPos
-                                + " but it failed COPPER_CHESTS tag check. Block: " + state.getBlock());
-                    }
-                    newSeen.add(repPos);
+                } else if (currentHome == null) {
+                    Dev.log("[PingChests] Found ChestBlock at " + repPos
+                            + " but it failed COPPER_CHESTS tag check. Block: " + state.getBlock());
                 }
+                newSeen.add(repPos);
+
             } else if ((state.getBlock() instanceof BarrelBlock && ConfigHandler.getConfig().barrelAsOutput) ||
                     (state.getBlock() instanceof ShulkerBoxBlock && ConfigHandler.getConfig().shulkerAsOutput)) {
-                BlockPos accessPos = findAccessPos(golem, level, pos);
-                if (accessPos == null) continue;
-                accessor.cugo$setAccessPos(pos, accessPos);
                 newSeen.add(pos);
             }
         }
@@ -244,43 +228,49 @@ public class PingChestsBehavior implements CugoBehavior {
     }
 
     private @Nullable BlockPos findAccessPos(@NotNull CopperGolem golem, @NotNull ServerLevel level, @NotNull BlockPos pos) {
-        int xzRadius = (int) Math.ceil(ConfigHandler.getConfig().xzInteractRange / 2.0);
-        int yRadius  = (int) Math.ceil(ConfigHandler.getConfig().yInteractRange);
+        double xzRange = ConfigHandler.getConfig().xzInteractRange;
+        double yRange = ConfigHandler.getConfig().yInteractRange;
 
+        // Use a slightly smaller check than the config to guarantee we are "inside"
+        double safeXZ = xzRange - 0.2;
+        double safeY = yRange - 0.2;
+
+        BlockPos origin = golem.blockPosition();
         BlockPos best = null;
         double bestDist = Double.MAX_VALUE;
 
-        for (int dy = -yRadius; dy <= yRadius; dy++) {
-            for (int dx = -xzRadius; dx <= xzRadius; dx++) {
-                for (int dz = -xzRadius; dz <= xzRadius; dz++) {
-                    if (dx == 0 && dz == 0) continue;
+        // Iterate through potential standing spots around the chest
+        for (BlockPos candidate : BlockPos.betweenClosed(
+                pos.offset(-(int)xzRange, -(int)yRange, -(int)xzRange),
+                pos.offset((int)xzRange, (int)yRange, (int)xzRange))) {
 
-                    BlockPos foot  = pos.offset(dx, dy, dz);
-                    BlockPos floor = foot.below();
-                    BlockPos head  = foot.above();
+            // 1. Exact range check from CENTER of candidate to CENTER of chest
+            double dx = Math.abs((candidate.getX() + 0.5) - (pos.getX() + 0.5));
+            double dy = Math.abs(candidate.getY() - pos.getY());
+            double dz = Math.abs((candidate.getZ() + 0.5) - (pos.getZ() + 0.5));
 
-                    if (!level.getBlockState(floor).isSolid()) continue;
-                    if (!level.getBlockState(foot).isAir()) continue;
-                    if (!level.getBlockState(head).isAir()) continue;
+            if (dx > safeXZ || dy > safeY || dz > safeXZ) continue;
 
-                    Path path = golem.getNavigation().createPath(foot, 0);
-                    if (path == null || !path.canReach()) continue;
+            // 2. Physical validation (Can he stand here?)
+            if (!level.getBlockState(candidate.below()).isSolid()) continue;
+            if (!level.getBlockState(candidate).isAir() && !level.getBlockState(candidate).is(BlockTags.REPLACEABLE)) continue;
+            if (!level.getBlockState(candidate.above()).isAir() && !level.getBlockState(candidate.above()).is(BlockTags.REPLACEABLE)) continue;
 
-                    double dist = foot.distSqr(golem.blockPosition());
-                    if (dist < bestDist) {
-                        bestDist = dist;
-                        best = foot;
-                    }
-                }
+            // 3. Reachability
+            Path path = golem.getNavigation().createPath(candidate, 0);
+            if (path == null || !path.canReach()) continue;
+
+            // 4. Closest to Golem (just like BatteryBehavior)
+            double dist = candidate.distSqr(origin);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = candidate.immutable();
             }
         }
 
-        if (best == null) {
-            Dev.log("[PingChests] " + pos + " — no reachable standable position found.");
-        } else {
-            Dev.log("[PingChests] " + pos + " reachable via " + best);
+        if (best != null) {
+            Dev.log("[PingChests] Found Battery-style access at " + best);
         }
-
         return best;
     }
 }

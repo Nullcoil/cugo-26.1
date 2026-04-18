@@ -70,7 +70,7 @@ public class RandomWanderBehavior implements CugoBehavior {
         int nextValue = preStepSubtractor + stepSubtractor;
         preStepSubtractor = stepSubtractor;
         stepSubtractor = nextValue;
-        Dev.log(wanderChance);
+        Dev.log("[Wander] Wander chance: " + wanderChance);
     }
 
     public void resetWanderChance() {

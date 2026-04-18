@@ -16,17 +16,18 @@ public class Config {
 
     public int panicTime = 5;
 
-    public int xzInteractRange = 3;
-    public int yInteractRange = 6;
+    public double xzInteractRange = 1.5;
+    public double yInteractRange = 6;
     public int maxStackSize = 64;
 
     public int batteryLife = 10; // in minutes
     public int warningThreshold = 1; // in minutes
+    public int batteryDrain = 1;
     public int chargeTime = 30; // in seconds. By default, from 0% to 100%, it takes 30 seconds.
     public int panicWasteMultiplier = 20; // while panicked, charge time goes down by this value per tick.
 
     public boolean passiveCharge = true; // if true, CuGO can charge by casually walking through a valid charge location
-    public double passiveChargeRateMultiplier = 0.25;
+    public double passiveChargeRateMultiplier = 0.25; // if passiveCharge is true, this affects the rate of charge
 
     public boolean consumeConsumables = true;
     public int losVerticalThreshold = 1;

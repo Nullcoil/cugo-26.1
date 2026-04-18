@@ -9,7 +9,6 @@ import net.minecraft.world.entity.animal.golem.CopperGolemState;
 import net.minecraft.world.level.block.state.BlockState;
 import net.nullcoil.cugo.attribute.CugoAttributes;
 import net.nullcoil.cugo.brain.CugoBehavior;
-import net.nullcoil.cugo.brain.behaviors.pathfinding.movecontrol.TightMoveControl;
 import net.nullcoil.cugo.config.ConfigHandler;
 import net.nullcoil.cugo.util.Dev;
 import net.nullcoil.cugo.util.StateMachine;
@@ -21,30 +20,25 @@ import java.util.Set;
 
 public class BatteryBehavior implements CugoBehavior {
 
-    private static final int WARNING_THRESHOLD = ConfigHandler.getConfig().warningThreshold * 20; // 1 minute in ticks
-    private static final int CHARGE_TICKS = ConfigHandler.getConfig().chargeTime * 20;      // 30 seconds in ticks
-    private static final int DRAIN_PER_TICK = 1;
+    private static final int WARNING_THRESHOLD = ConfigHandler.getConfig().warningThreshold * 20 * 60;
+    private static final int CHARGE_TICKS = ConfigHandler.getConfig().chargeTime * 20;
+    private static final int DRAIN_PER_TICK = ConfigHandler.getConfig().batteryDrain;
     private static final int PANIC_DRAIN_MULTIPLIER = ConfigHandler.getConfig().panicWasteMultiplier;
-    private static final int CHARGE_GRACE = 5;             // ticks before losing dock
-    private int dockingTimeout = 0;
+    private static final int CHARGE_GRACE = 5;
     private static final int DOCKING_TIMEOUT_MAX = 60;
 
     private StateMachine.ChargePhase chargePhase = StateMachine.ChargePhase.IDLE;
-    private @Nullable BlockPos chargeTarget = null;
+    private @Nullable BlockPos target = null;
     private int chargeTicks = 0;
     private int pathCooldown = 0;
     private int chargeGraceTicks = 0;
+    private int dockingTimeout = 0;
     private boolean isPanicking = false;
     private boolean wasChargingLastTick = false;
-    private @Nullable TightMoveControl tightMoveControl = null;
 
     private final Set<Integer> loggedThresholds = new HashSet<>(Set.of(75, 50, 40, 30, 20));
 
     // ── External wiring ──────────────────────────────────────────────────────
-
-    public void setMoveControl(@NotNull TightMoveControl tmc) {
-        this.tightMoveControl = tmc;
-    }
 
     public void setPanicking(boolean panicking) {
         this.isPanicking = panicking;
@@ -61,12 +55,9 @@ public class BatteryBehavior implements CugoBehavior {
         if (!ConfigHandler.getConfig().rechargeableGolems) return;
 
         // ── Drain ────────────────────────────────────────────────────────────
-        // Always drain unless we are actively charging.
         if (chargePhase != StateMachine.ChargePhase.CHARGING) {
             double current = golem.getAttributeValue(CugoAttributes.BATTERY);
-            double drain = isPanicking
-                    ? DRAIN_PER_TICK * PANIC_DRAIN_MULTIPLIER
-                    : DRAIN_PER_TICK;
+            double drain = isPanicking ? DRAIN_PER_TICK * PANIC_DRAIN_MULTIPLIER : DRAIN_PER_TICK;
             golem.getAttribute(CugoAttributes.BATTERY)
                     .setBaseValue(Math.max(0, current - drain));
             checkBatteryThresholds(golem);
@@ -74,15 +65,12 @@ public class BatteryBehavior implements CugoBehavior {
 
         // ── Charging logging ─────────────────────────────────────────────────
         boolean chargingNow = chargePhase == StateMachine.ChargePhase.CHARGING;
-        if (chargingNow && !wasChargingLastTick) {
-            Dev.log(String.format("[Battery] Began charging: %d%%", getBatteryPercent(golem)));
-        } else if (!chargingNow && wasChargingLastTick) {
-            Dev.log(String.format("[Battery] Stopped charging: %d%%", getBatteryPercent(golem)));
-        }
+        if (chargingNow && !wasChargingLastTick)
+            Dev.log(String.format("[BB] Began charging: %d%%", getBatteryPercent(golem)));
+        else if (!chargingNow && wasChargingLastTick)
+            Dev.log(String.format("[BB] Stopped charging: %d%%", getBatteryPercent(golem)));
         wasChargingLastTick = chargingNow;
 
-        // ── Panicking short-circuit ──────────────────────────────────────────
-        // Panic overrides charging behavior entirely (battery just drains faster).
         if (isPanicking) return;
 
         // ── State machine ────────────────────────────────────────────────────
@@ -92,152 +80,20 @@ public class BatteryBehavior implements CugoBehavior {
                 if (battery <= WARNING_THRESHOLD) {
                     chargePhase = StateMachine.ChargePhase.SEEKING;
                     golem.setState(CopperGolemState.IDLE);
-                    Dev.log(String.format("[Battery] Low power. Seeking charge: %d%%",
-                            getBatteryPercent(golem)));
+                    Dev.log(String.format("[BB] Low power. Seeking charge: %d%%", getBatteryPercent(golem)));
                 }
             }
             case SEEKING -> tickSeeking(golem, level);
-            case DOCKING -> tickDocking(golem, level);
-            case CHARGING -> tickCharging(golem, level);
-        }
-    }
-
-    // ── SEEKING ──────────────────────────────────────────────────────────────
-
-    private static final double DOCK_RANGE_SQ = 4.0; // 2 blocks — switch to TMC within this range
-
-    private void tickSeeking(@NotNull CopperGolem golem, @NotNull ServerLevel level) {
-        if (isInChargePosition(golem, level)) {
-            dock(golem);
-            return;
-        }
-
-        if (chargeTarget == null) {
-            chargeTarget = findNearestChargePosition(golem, level);
-            if (chargeTarget == null) return;
-            Dev.log("[Battery] Target locked: " + chargeTarget.toShortString());
-            // Hand off to pathfinder for world-aware navigation
-            golem.getNavigation().moveTo(
-                    chargeTarget.getX() + 0.5,
-                    chargeTarget.getY(),
-                    chargeTarget.getZ() + 0.5,
-                    1.0
-            );
-        }
-
-        double dx = golem.getX() - (chargeTarget.getX() + 0.5);
-        double dy = golem.getY() - chargeTarget.getY();
-        double dz = golem.getZ() - (chargeTarget.getZ() + 0.5);
-        double xzDistSq = dx * dx + dz * dz;
-        double yDist = Math.abs(dy);
-
-        if (xzDistSq <= DOCK_RANGE_SQ && yDist <= 1.5) {
-            golem.getNavigation().stop();
-            chargePhase = StateMachine.ChargePhase.DOCKING;
-            Dev.log("[Battery] Switching to TMC for final approach.");
-            return;
-        }
-
-        // Re-issue path if navigator gave up
-        if (golem.getNavigation().isDone()) {
-            golem.getNavigation().moveTo(
-                    chargeTarget.getX() + 0.5,
-                    chargeTarget.getY(),
-                    chargeTarget.getZ() + 0.5,
-                    1.0
-            );
-        }
-    }
-
-    private void tickDocking(@NotNull CopperGolem golem, @NotNull ServerLevel level) {
-        if (isInChargePosition(golem, level)) {
-            dock(golem);
-            dockingTimeout = 0;
-            return;
-        }
-
-        if (chargeTarget == null) {
-            chargePhase = StateMachine.ChargePhase.SEEKING;
-            return;
-        }
-
-        dockingTimeout++;
-        if (dockingTimeout > DOCKING_TIMEOUT_MAX) {
-            Dev.log("[Battery] TMC couldn't dock. Re-seeking.");
-            chargePhase = StateMachine.ChargePhase.SEEKING;
-            chargeTarget = null;
-            dockingTimeout = 0;
-            return;
-        }
-
-        double dx = golem.getX() - (chargeTarget.getX() + 0.5);
-        double dy = golem.getY() - chargeTarget.getY();
-        double dz = golem.getZ() - (chargeTarget.getZ() + 0.5);
-        double yDist = Math.abs(dy);
-
-        // If Y is still off, let the pathfinder handle it — TMC can't jump
-        if (yDist > 0.5) {
-            if (golem.getNavigation().isDone()) {
-                golem.getNavigation().moveTo(
-                        chargeTarget.getX() + 0.5,
-                        chargeTarget.getY(),
-                        chargeTarget.getZ() + 0.5,
-                        1.0
-                );
+            case CHARGING -> {
+                if (battery < ConfigHandler.getConfig().batteryLife * 60 * 20) {
+                    applyRecharge(golem, level);
+                } else if (battery == ConfigHandler.getConfig().batteryLife * 60 * 20) {
+                    chargePhase = StateMachine.ChargePhase.IDLE;
+                    golem.setState(CopperGolemState.IDLE);
+                    Dev.log(String.format("[BB] Should be at max power. Current battery: %d%%", getBatteryPercent(golem)));
+                }
             }
-            return;
         }
-
-        // Y is good — TMC handles XZ precision
-        if (tightMoveControl != null) {
-            tightMoveControl.setWantedPosition(
-                    chargeTarget.getX() + 0.5,
-                    chargeTarget.getY(),
-                    chargeTarget.getZ() + 0.5,
-                    1.0
-            );
-        }
-    }
-
-    // ── CHARGING ─────────────────────────────────────────────────────────────
-
-    private void tickCharging(@NotNull CopperGolem golem, @NotNull ServerLevel level) {
-        // Hard-stop movement every tick while docked.
-        golem.getNavigation().stop();
-        if (tightMoveControl != null) tightMoveControl.forceStop();
-
-        // Grace period before declaring dock lost.
-        if (!isInChargePosition(golem, level)) {
-            chargeGraceTicks++;
-            if (chargeGraceTicks > CHARGE_GRACE) {
-                Dev.log("[Battery] Lost dock. Resuming seek.");
-                chargePhase = StateMachine.ChargePhase.SEEKING;
-                chargeTarget = null;
-                chargeGraceTicks = 0;
-            }
-            return;
-        }
-
-        chargeGraceTicks = 0;
-        chargeTicks++;
-        applyRecharge(golem, level);
-
-        if (getBatteryPercent(golem) >= 100) {
-            Dev.log("[Battery] Fully charged.");
-            reset(golem);
-        }
-    }
-
-    // ── Docking ──────────────────────────────────────────────────────────────
-
-    private void dock(@NotNull CopperGolem golem) {
-        golem.getNavigation().stop();
-        if (tightMoveControl != null) tightMoveControl.forceStop();
-        chargeTicks = 0;
-        chargeGraceTicks = 0;
-        chargePhase = StateMachine.ChargePhase.CHARGING;
-        golem.setState(CopperGolemState.IDLE);
-        Dev.log("[Battery] Docked.");
     }
 
     // ── Recharge application ─────────────────────────────────────────────────
@@ -249,7 +105,6 @@ public class BatteryBehavior implements CugoBehavior {
         golem.getAttribute(CugoAttributes.BATTERY)
                 .setBaseValue(Math.min(current + chargePerTick, maxBattery));
 
-        // Redstone particle effect while charging.
         if (level.getRandom().nextFloat() < 0.15f) {
             DustParticleOptions particle = new DustParticleOptions(0xff0000, 1.0f);
             level.sendParticles(particle,
@@ -258,79 +113,49 @@ public class BatteryBehavior implements CugoBehavior {
         }
     }
 
+    // ── Find the target ──────────────────────────────────────────────────────
+
+    private void tickSeeking(@NotNull CopperGolem golem, @NotNull ServerLevel level) {
+        if (inChargeBubble(level, golem.blockPosition())) {
+            Dev.log("[BB] Golem in bubble. Golem pos: " + golem.blockPosition());
+            golem.getNavigation().stop();
+            chargePhase = StateMachine.ChargePhase.CHARGING;
+            return;
+        }
+
+        if (target == null) {
+            target = getChargeTarget(golem, level);
+            if (target == null) {
+                Dev.log("[BB] No target found");
+                return;
+            }
+            Dev.log("[BB] Target locked: " + target);
+        }
+
+        golem.getNavigation().moveTo(target.getX()+0.5, target.getY(), target.getZ()+0.5, 1.1);
+
+        double dx = golem.getX() - (target.getX() + 0.5);
+        double dy = golem.getY() - target.getY();
+        double dz = golem.getZ() - (target.getZ() + 0.5);
+
+        if(golem.distanceToSqr(target.getX(), target.getY(), target.getZ()) < 2.5) {
+            Dev.log("[BB] Golem is close.");
+        }
+    }
+
     // ── Charge position logic ────────────────────────────────────────────────
 
-    /**
-     * Returns true if the golem's current feet position qualifies as a charge spot.
-     * Valid spots: the signal source block itself, or any of its 6 face-adjacent neighbors.
-     */
-    public static boolean isInChargePosition(@NotNull CopperGolem golem,
-                                             @NotNull ServerLevel level) {
-        BlockPos feet = BlockPos.containing(golem.getX(), golem.getY(), golem.getZ());
-        return isValidChargeStandingPos(level, feet);
-    }
-
-    /**
-     * A position is valid if it IS an active signal source, or is face-adjacent to one.
-     * Diagonal positions do NOT count.
-     */
-    public static boolean isValidChargeStandingPos(@NotNull ServerLevel level,
-                                                   @NotNull BlockPos pos) {
-        // Y: standing directly in/on the signal source
-        if (isActiveSignalSource(level, pos)) return true;
-
-        // Y: face-adjacent to a signal source (N/S/E/W/Up/Down — the cross)
-        for (Direction dir : Direction.values()) {
-            if (isActiveSignalSource(level, pos.relative(dir))) return true;
-        }
-
-        // U: block directly above pos is itself adjacent to a signal source above it
-        // i.e. the torch is at pos.above().above()
-        if (isActiveSignalSource(level, pos.above().above())) return true;
-
-        return false;
-    }
-
-    /**
-     * A block is an active signal source if it implements isSignalSource and is
-     * currently emitting signal in at least one direction.
-     */
-    private static boolean isActiveSignalSource(@NotNull ServerLevel level,
-                                                @NotNull BlockPos pos) {
-        BlockState state = level.getBlockState(pos);
-        if (!state.isSignalSource()) return false;
-        for (Direction dir : Direction.values()) {
-            if (state.getSignal(level, pos, dir) > 0) return true;
-        }
-        return false;
-    }
-
-    /**
-     * Scans nearby blocks to find the closest valid standing position adjacent
-     * to an active signal source that the golem can physically occupy.
-     */
-    private @Nullable BlockPos findNearestChargePosition(@NotNull CopperGolem golem,
-                                                         @NotNull ServerLevel level) {
+    @Nullable
+    private BlockPos getChargeTarget(@NotNull CopperGolem golem,  @NotNull ServerLevel level) {
         BlockPos origin = golem.blockPosition();
-        int range = 16;
+        int range = ConfigHandler.getConfig().searchRadius;
         BlockPos nearest = null;
         double nearestDist = Double.MAX_VALUE;
 
         for (BlockPos pos : BlockPos.betweenClosed(
-                origin.offset(-range, -4, -range),
+                origin.offset(-range, -2, -range),
                 origin.offset(range, 4, range))) {
-
-            if (!isValidChargeStandingPos(level, pos)) continue;
-
-            // Golem must be able to stand here: needs floor, needs headroom, must be passable.
-            BlockState here = level.getBlockState(pos);
-            if (!here.isAir() && !here.isSignalSource()) continue;
-
-            BlockPos below = pos.below();
-            if (!level.getBlockState(below).isFaceSturdy(level, below, Direction.UP)) continue;
-
-            BlockPos above = pos.above();
-            if (level.getBlockState(above).isSuffocating(level, above)) continue;
+            if(!isActiveSignalSource(level, pos)) continue;
 
             double dist = pos.distSqr(origin);
             if (dist < nearestDist) {
@@ -339,6 +164,37 @@ public class BatteryBehavior implements CugoBehavior {
             }
         }
         return nearest;
+    }
+
+    private static boolean isActiveSignalSource(@NotNull ServerLevel level, @NotNull BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (!state.isSignalSource()) return false;
+        for (Direction dir : Direction.values()) if (state.getSignal(level, pos, dir) > 0) return true;
+        return false;
+    }
+
+    public static boolean inChargeBubble(@NotNull ServerLevel level, @NotNull BlockPos pos) {
+        // start with the strict bubble:
+        if(isActiveSignalSource(level, pos)) return true; // if standing in something like a lit redstone torch
+        if(level.hasNeighborSignal(pos)) return true;     // if adjacent to active signal source
+        BlockPos neighbor;
+        for (Direction dir : Direction.Plane.HORIZONTAL) {
+            neighbor = pos.relative(dir);
+            if (level.hasNeighborSignal(neighbor) || isActiveSignalSource(level, neighbor)) return true;
+            // ^are we standing directly next to the bubble or an active signal source?^
+        }
+        BlockPos above = pos.relative(Direction.UP);
+        BlockPos below = pos.relative(Direction.DOWN);
+
+        // Standing under the bubble, or antenna is touching bubble
+        if (level.hasNeighborSignal(above)
+                || level.hasNeighborSignal(above.relative(Direction.UP))
+                || isActiveSignalSource(level, above)
+                || isActiveSignalSource(level, above.relative(Direction.UP))) return true;
+
+        if (level.hasNeighborSignal(below) || isActiveSignalSource(level, below)) return true; //standing under bubble
+
+        return false;
     }
 
     // ── Utilities ────────────────────────────────────────────────────────────
@@ -364,10 +220,11 @@ public class BatteryBehavior implements CugoBehavior {
 
     public void reset(@Nullable CopperGolem golem) {
         chargePhase = StateMachine.ChargePhase.IDLE;
-        chargeTarget = null;
+        target = null;
         chargeTicks = 0;
         pathCooldown = 0;
         chargeGraceTicks = 0;
+        dockingTimeout = 0;
         loggedThresholds.addAll(Set.of(75, 50, 40, 30, 20));
         if (golem != null) golem.setState(CopperGolemState.IDLE);
     }

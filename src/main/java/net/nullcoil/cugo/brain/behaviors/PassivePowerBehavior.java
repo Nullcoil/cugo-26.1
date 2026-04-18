@@ -16,7 +16,7 @@ public class PassivePowerBehavior implements CugoBehavior {
         if (!ConfigHandler.getConfig().passiveCharge) return;
 
         // 2. Check if he is currently in a "Bubble" using the logic from your main class
-        if (BatteryBehavior.isInChargePosition(golem, level)) {
+        if (BatteryBehavior.inChargeBubble(level, golem.blockPosition())) {
             applyPassiveSiphon(golem);
             if (level.getRandom().nextFloat() < 0.15f) {
                 DustParticleOptions particle = new DustParticleOptions(0xff0000, 1.0f);
