@@ -24,9 +24,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 public abstract class AbstractChestInteractionBehavior implements CugoBehavior {
 
@@ -46,11 +44,11 @@ public abstract class AbstractChestInteractionBehavior implements CugoBehavior {
 
     protected abstract void buildQueue(@NotNull CopperGolem golem, @NotNull ServerLevel level);
     protected abstract boolean isValidTarget(@NotNull ServerLevel level, @NotNull BlockPos pos);
+
     protected abstract void onOpenAnimation(@NotNull CopperGolem golem, @NotNull ServerLevel level,
                                             @Nullable Container inventory, @NotNull BlockPos chestPos);
     protected abstract void resolveOpening(@NotNull CopperGolem golem, @NotNull ServerLevel level,
                                            @Nullable Container inventory, @NotNull BlockPos chestPos);
-
     protected void onCloseAnimation(@NotNull CopperGolem golem, @NotNull ServerLevel level,
                                     @NotNull BlockPos chestPos) {}
 

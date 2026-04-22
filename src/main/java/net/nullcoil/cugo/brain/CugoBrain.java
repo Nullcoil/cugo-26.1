@@ -17,6 +17,8 @@ import net.nullcoil.cugo.util.MobMoveControlAccessor;
 import net.nullcoil.cugo.util.StateMachine;
 import org.jetbrains.annotations.NotNull;
 
+// TODO: Memory transfer between CuGO in range.
+
 public class CugoBrain implements CugoBehavior {
     private StateMachine.State currentState = StateMachine.State.WANDERING;
 

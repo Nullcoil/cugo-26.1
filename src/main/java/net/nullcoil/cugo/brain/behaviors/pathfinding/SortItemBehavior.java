@@ -86,10 +86,12 @@ public class SortItemBehavior extends AbstractChestInteractionBehavior {
         CugoNBTAccessor accessor = (CugoNBTAccessor) golem;
         List<BlockPos> queue = new ArrayList<>();
 
+        // 1. Memorized chest first (has a known match for this item)
         if (memorizedChest != null && isValidTarget(level, memorizedChest)) {
             queue.add(memorizedChest);
         }
 
+        // 2. Other rummaged chests that contain a matching item
         if (!memorizedItem.isEmpty()) {
             for (ChestMemory memory : accessor.cugo$getRummagedChests()) {
                 if (memory.pos().equals(memorizedChest)) continue;
@@ -104,13 +106,33 @@ public class SortItemBehavior extends AbstractChestInteractionBehavior {
             }
         }
 
+        // Build a set of all rummaged positions for quick lookup
+        Set<BlockPos> rummagedPositions = accessor.cugo$getRummagedChests()
+                .stream()
+                .map(ChestMemory::pos)
+                .collect(java.util.stream.Collectors.toSet());
+
+        List<BlockPos> unrummaged = new ArrayList<>();
+        List<BlockPos> rummaged   = new ArrayList<>();
+
         for (BlockPos pos : seenChests) {
-            if (!pos.equals(memorizedChest) && isValidTarget(level, pos)) {
-                if (queue.stream().noneMatch(p -> p.equals(pos))) {
-                    queue.add(pos);
-                }
+            // Skip anything already queued
+            if (pos.equals(memorizedChest)) continue;
+            if (!isValidTarget(level, pos)) continue;
+            if (queue.stream().anyMatch(p -> p.equals(pos))) continue;
+
+            if (rummagedPositions.contains(pos)) {
+                rummaged.add(pos);
+            } else {
+                unrummaged.add(pos);
             }
         }
+
+        // 3. Unrummaged seen chests — fresh territory, check these first
+        queue.addAll(unrummaged);
+        // 4. Rummaged seen chests that didn't have a matching item — last resort
+        queue.addAll(rummaged);
+
         return queue;
     }
 
@@ -137,9 +159,28 @@ public class SortItemBehavior extends AbstractChestInteractionBehavior {
 
     private boolean purityCheck(@NotNull CopperGolem golem, @NotNull Container inventory) {
         if (golem.getMainHandItem().isEmpty()) return false;
+
+        ItemStack held = golem.getMainHandItem();
+        boolean hasUsableSpace = false;
+
+        for (int i = 0; i < inventory.getContainerSize(); i++) {
+            ItemStack slot = inventory.getItem(i);
+            if (slot.isEmpty()) {
+                hasUsableSpace = true;
+                break;
+            }
+            if (ItemStack.isSameItemSameComponents(slot, held)
+                    && slot.getCount() < slot.getMaxStackSize()) {
+                hasUsableSpace = true;
+                break;
+            }
+        }
+
+        if (!hasUsableSpace) return false;
+
         for (int i = 0; i < inventory.getContainerSize(); i++) {
             ItemStack stack = inventory.getItem(i);
-            if (!stack.isEmpty() && ItemStack.isSameItemSameComponents(stack, golem.getMainHandItem())) {
+            if (!stack.isEmpty() && ItemStack.isSameItemSameComponents(stack, held)) {
                 return true;
             }
         }

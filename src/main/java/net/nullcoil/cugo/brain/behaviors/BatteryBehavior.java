@@ -123,6 +123,13 @@ public class BatteryBehavior implements CugoBehavior {
             return;
         }
 
+        // If our target is no longer a valid signal source, discard it and re-search
+        if (target != null && !isActiveSignalSource(level, target)) {
+            Dev.log("[BB] Target lost signal, re-seeking: " + target);
+            golem.getNavigation().stop();
+            target = null;
+        }
+
         if (target == null) {
             target = getChargeTarget(golem, level);
             if (target == null) {
@@ -133,10 +140,6 @@ public class BatteryBehavior implements CugoBehavior {
         }
 
         golem.getNavigation().moveTo(target.getX()+0.5, target.getY(), target.getZ()+0.5, 1.1);
-
-        double dx = golem.getX() - (target.getX() + 0.5);
-        double dy = golem.getY() - target.getY();
-        double dz = golem.getZ() - (target.getZ() + 0.5);
 
         if(golem.distanceToSqr(target.getX(), target.getY(), target.getZ()) < 2.5) {
             Dev.log("[BB] Golem is close.");
