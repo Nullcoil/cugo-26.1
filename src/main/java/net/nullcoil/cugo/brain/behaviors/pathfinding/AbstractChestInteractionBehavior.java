@@ -1,7 +1,6 @@
 package net.nullcoil.cugo.brain.behaviors.pathfinding;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -254,7 +253,7 @@ public abstract class AbstractChestInteractionBehavior implements CugoBehavior {
 
     private boolean hasLineOfSight(@NotNull ServerLevel level, @NotNull CopperGolem golem, @NotNull BlockPos chestPos) {
         int dy = chestPos.getY() - golem.blockPosition().getY();
-        if (dy >= -1 && dy <= 2) return true;
+        if (dy >= -ConfigHandler.getConfig().losUnderThreshold && dy <= ConfigHandler.getConfig().losOverThreshold) return true;
         Vec3 eyes = golem.getEyePosition();
         Vec3 chestCenter = Vec3.atCenterOf(chestPos);
 

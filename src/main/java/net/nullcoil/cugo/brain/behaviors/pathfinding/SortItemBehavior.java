@@ -22,6 +22,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class SortItemBehavior extends AbstractChestInteractionBehavior {
 
@@ -110,7 +111,7 @@ public class SortItemBehavior extends AbstractChestInteractionBehavior {
         Set<BlockPos> rummagedPositions = accessor.cugo$getRummagedChests()
                 .stream()
                 .map(ChestMemory::pos)
-                .collect(java.util.stream.Collectors.toSet());
+                .collect(Collectors.toSet());
 
         List<BlockPos> unrummaged = new ArrayList<>();
         List<BlockPos> rummaged   = new ArrayList<>();
@@ -210,6 +211,5 @@ public class SortItemBehavior extends AbstractChestInteractionBehavior {
     public void reset() {
         super.reset();
         lastSortSucceeded = false;
-        // Do not clear memorizedChest/item here – fullReset does that.
     }
 }

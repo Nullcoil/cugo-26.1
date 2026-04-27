@@ -5,10 +5,12 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.ai.control.MoveControl;
 import net.minecraft.world.entity.animal.golem.CopperGolem;
+import net.minecraft.world.entity.animal.golem.CopperGolemState;
 import net.nullcoil.cugo.brain.behaviors.*;
 import net.nullcoil.cugo.brain.behaviors.pathfinding.EdgeCaseBehavior;
 import net.nullcoil.cugo.brain.behaviors.pathfinding.FetchItemBehavior;
 import net.nullcoil.cugo.brain.behaviors.pathfinding.SortItemBehavior;
+import net.nullcoil.cugo.brain.behaviors.pathfinding.SurveyChestsBehavior;
 import net.nullcoil.cugo.brain.behaviors.pathfinding.movecontrol.TightMoveControl;
 import net.nullcoil.cugo.config.ConfigHandler;
 import net.nullcoil.cugo.util.CugoNBTAccessor;
@@ -32,6 +34,7 @@ public class CugoBrain implements CugoBehavior {
     private BatteryBehavior batteryBehavior;
     private PassivePowerBehavior passivePower;
     private EdgeCaseBehavior edgeCaseBehavior;
+    private SurveyChestsBehavior surveyBehavior;
 
     private MoveControl vanillaMoveControl;
     private TightMoveControl tightMoveControl;
@@ -51,6 +54,7 @@ public class CugoBrain implements CugoBehavior {
         this.sortBehavior = new SortItemBehavior();
         this.batteryBehavior = new BatteryBehavior();
         this.edgeCaseBehavior = new EdgeCaseBehavior();
+        this.surveyBehavior = new SurveyChestsBehavior();
 
         this.passivePower = new PassivePowerBehavior();
 
@@ -59,7 +63,7 @@ public class CugoBrain implements CugoBehavior {
 
         this.self = golem;
 
-        this.currentState = StateMachine.State.PINGING;
+        this.currentState = StateMachine.State.LINGERING;
     }
 
     @Override
@@ -127,6 +131,7 @@ public class CugoBrain implements CugoBehavior {
             // meaning the item vanished unexpectedly mid-behavior.
             if (golem.getMainHandItem().isEmpty()) {
                 Dev.log("[CugoBrain] Item lost mid-sort unexpectedly. Aborting to wander.");
+                golem.setState(CopperGolemState.IDLE);
                 sortBehavior.reset();
                 fetchBehavior.reset();
                 transitionToWander();
@@ -155,6 +160,17 @@ public class CugoBrain implements CugoBehavior {
                     fetchBehavior.reset();
                     transitionToWander();
                 }
+            }
+            return;
+        }
+
+        // ── 3.75. SURVEY ─────────────────────────────────────────────────────────
+        if (currentState == StateMachine.State.SURVEY) {
+            surveyBehavior.tick(golem, level);
+
+            if (surveyBehavior.isDone()) {
+                surveyBehavior.reset();
+                currentState = StateMachine.State.FETCHING;
             }
             return;
         }
@@ -209,7 +225,14 @@ public class CugoBrain implements CugoBehavior {
                 pingBehavior.tick(golem, level);
                 wanderBehavior.resetWanderChance();
                 wanderBehavior.resume();
-                currentState = StateMachine.State.WANDERING;
+
+                CugoNBTAccessor accessor = (CugoNBTAccessor) golem;
+                if (accessor.cugo$getRummagedChests().isEmpty()) {
+                    surveyBehavior.reset();
+                    currentState = StateMachine.State.SURVEY;
+                } else {
+                    currentState = StateMachine.State.WANDERING;
+                }
             }
         }
     }
@@ -220,6 +243,7 @@ public class CugoBrain implements CugoBehavior {
         if (this.fetchBehavior != null) this.fetchBehavior.fullReset();
         if (this.sortBehavior != null) this.sortBehavior.fullReset();
         if (this.edgeCaseBehavior != null) this.edgeCaseBehavior.reset();
+        if (this.surveyBehavior != null) this.surveyBehavior.reset();
         if (this.self != null) {
             ((MobMoveControlAccessor) self).cugo$setMoveControl(vanillaMoveControl);
         }

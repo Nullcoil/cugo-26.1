@@ -11,7 +11,6 @@ import net.minecraft.world.entity.animal.golem.CopperGolemState;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.CopperChestBlock;
 import net.minecraft.world.level.block.state.BlockState;
-import net.nullcoil.cugo.brain.behaviors.pathfinding.AbstractChestInteractionBehavior;
 import net.nullcoil.cugo.config.ConfigHandler;
 import net.nullcoil.cugo.util.CugoNBTAccessor;
 import net.nullcoil.cugo.util.Dev;
